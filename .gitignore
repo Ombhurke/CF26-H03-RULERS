@@ -20,6 +20,8 @@ whatsapp_debug.log
 # Build & Temp
 dist/
 build/
+.next/
+.turbo/
 .temp/
 supabase/.temp/
 
