@@ -106,8 +106,32 @@ CREATE TABLE IF NOT EXISTS public.fl_audit_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 6. Hospital Training Jobs & Benchmark Evaluation Traces
+CREATE TABLE IF NOT EXISTS public.fl_training_jobs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  model_id TEXT NOT NULL REFERENCES public.fl_models(id) ON DELETE CASCADE,
+  hospital_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  hospital_name TEXT NOT NULL,
+  dataset_name TEXT NOT NULL,
+  sample_count INT NOT NULL DEFAULT 0,
+  epochs INT NOT NULL DEFAULT 10,
+  batch_size INT NOT NULL DEFAULT 16,
+  baseline_accuracy FLOAT NOT NULL DEFAULT 0.70,
+  candidate_accuracy FLOAT,
+  candidate_f1 FLOAT,
+  candidate_precision FLOAT,
+  candidate_recall FLOAT,
+  candidate_loss FLOAT,
+  gate_decision TEXT NOT NULL DEFAULT 'TRAINING' CHECK (gate_decision IN ('ACCEPTED', 'REJECTED', 'TRAINING', 'FAILED')),
+  gate_reason TEXT,
+  duration_seconds FLOAT,
+  epoch_metrics JSONB NOT NULL DEFAULT '[]'::jsonb,
+  provenance_hash TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ============================================================
--- 6. ENABLE REALTIME PUBLICATION
+-- 7. ENABLE REALTIME PUBLICATION
 -- ============================================================
 DO $$
 BEGIN
@@ -116,10 +140,11 @@ BEGIN
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.fl_training_rounds; EXCEPTION WHEN duplicate_object THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.fl_audit_ledger; EXCEPTION WHEN duplicate_object THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.fl_local_updates; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.fl_training_jobs; EXCEPTION WHEN duplicate_object THEN NULL; END;
 END $$;
 
 -- ============================================================
--- 7. ROW LEVEL SECURITY POLICIES
+-- 8. ROW LEVEL SECURITY POLICIES
 -- ============================================================
 
 -- fl_models
@@ -162,3 +187,10 @@ CREATE POLICY "Authenticated can view audit ledger" ON public.fl_audit_ledger FO
 
 DROP POLICY IF EXISTS "Authenticated can insert audit ledger entries" ON public.fl_audit_ledger;
 CREATE POLICY "Authenticated can insert audit ledger entries" ON public.fl_audit_ledger FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- fl_training_jobs (Strict Isolation: Hospital can only view its own training jobs & evaluation traces)
+ALTER TABLE public.fl_training_jobs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Hospital can view and manage own training jobs" ON public.fl_training_jobs;
+CREATE POLICY "Hospital can view and manage own training jobs" ON public.fl_training_jobs FOR ALL TO authenticated
+  USING (auth.uid() = hospital_id)
+  WITH CHECK (auth.uid() = hospital_id);

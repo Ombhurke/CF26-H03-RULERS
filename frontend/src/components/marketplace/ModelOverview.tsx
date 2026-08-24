@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Database,
   GraduationCap,
+  History,
   AlertTriangle,
   Layers,
   Sparkles,
@@ -18,13 +19,15 @@ import { MetricCards } from "./MetricCards";
 import { ConvergenceChart } from "./ConvergenceChart";
 import { DataRequirements } from "./DataRequirements";
 import { TrainingPanel } from "./TrainingPanel";
+import { TrainingHistory } from "./TrainingHistory";
 
-type Section = "overview" | "data" | "train";
+type Section = "overview" | "data" | "train" | "history";
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Model Architecture & Overview", icon: <LayoutGrid className="h-4 w-4" /> },
   { id: "data", label: "Data Requirements & Eligibility", icon: <Database className="h-4 w-4" /> },
   { id: "train", label: "Train & Contribute Rounds", icon: <GraduationCap className="h-4 w-4" /> },
+  { id: "history", label: "Training History & Evaluation Traces", icon: <History className="h-4 w-4" /> },
 ];
 
 function SpecRow({ label, value }: { label: string; value: string }) {
@@ -46,7 +49,7 @@ function HospitalsPanel({
   return (
     <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border/60 px-6 py-4 bg-muted/20">
-        <Building2 className="h-4 w-4 text-indigo-500" />
+        <Building2 className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-bold text-foreground">Contributing Hospital Roster</h3>
         <span className="ml-auto text-xs text-muted-foreground font-mono">
           {sites.length} active site{sites.length === 1 ? "" : "s"}
@@ -131,7 +134,7 @@ export function ModelOverview({
 
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">Modality:</span>
-          <span className="rounded-full bg-indigo-500/10 border border-indigo-500/25 px-2.5 py-0.5 font-bold text-indigo-600 dark:text-indigo-400">
+          <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 font-bold text-primary">
             {model.modality}
           </span>
         </div>
@@ -140,12 +143,12 @@ export function ModelOverview({
       {/* Model Header */}
       <div className="glass-card flex flex-col gap-5 rounded-3xl border border-border/80 bg-white/90 dark:bg-card/90 p-6 md:p-8 backdrop-blur-xl shadow-md lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/30">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/30">
             <Cpu className="h-7 w-7" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="font-mono text-xs font-bold uppercase tracking-wider text-indigo-500">
+              <span className="font-mono text-xs font-bold uppercase tracking-wider text-primary">
                 {model.short_name}
               </span>
               <span className="text-muted-foreground">·</span>
@@ -158,16 +161,16 @@ export function ModelOverview({
               {model.description}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSection("train")}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-600/25 hover:opacity-95 transition-all"
-            >
-              <GraduationCap className="h-4 w-4" />
-              Train &amp; Contribute Rounds
-            </button>
-          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSection("train")}
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-purple-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-primary/25 hover:opacity-95 transition-all"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Train &amp; Contribute Rounds
+          </button>
         </div>
       </div>
 
@@ -183,7 +186,7 @@ export function ModelOverview({
             onClick={() => setSection(s.id)}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
               section === s.id
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25"
+                ? "bg-primary text-white shadow-md shadow-primary/25"
                 : "border border-border/80 bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
@@ -202,7 +205,7 @@ export function ModelOverview({
             {/* Architecture specs */}
             <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md shadow-sm p-6">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border/60 pb-3">
-                <Cpu className="h-4 w-4 text-indigo-500" />
+                <Cpu className="h-4 w-4 text-primary" />
                 Network Architecture &amp; Target
               </div>
               <dl className="mt-3 divide-y divide-border/40">
@@ -250,6 +253,8 @@ export function ModelOverview({
       {section === "data" && <DataRequirements model={model} />}
 
       {section === "train" && <TrainingPanel model={model} state={state} />}
+
+      {section === "history" && <TrainingHistory />}
     </div>
   );
 }

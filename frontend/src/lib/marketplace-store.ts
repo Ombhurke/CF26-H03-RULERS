@@ -314,7 +314,7 @@ async function runRound(prev: ModelRuntimeState, def: FLModel): Promise<ModelRun
     acceptedCount: acceptedIdx.length,
     rejectedCount: rejectedIdx.length,
     auditEvents: dbAuditEvents,
-  }).catch((e) => console.warn("Supabase FL round persistence warning:", e));
+  }).catch((e: any) => console.warn("Supabase FL round persistence warning:", e));
 
   return {
     ...prev,
