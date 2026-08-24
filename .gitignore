@@ -1,0 +1,61 @@
+# Environments
+.venv/
+venv/
+env/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# WhatsApp Gateway Session & Cache (DO NOT COMMIT)
+.wwebjs_auth/
+.wwebjs_cache/
+**/.wwebjs_auth/
+**/.wwebjs_cache/
+**/.wwebjs_auth/**
+**/.wwebjs_cache/**
+whatsapp_debug.log
+*.log
+
+# Build & Temp
+dist/
+build/
+.temp/
+supabase/.temp/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+chat_cih/
+
+# Project specifics
+serveo_stdout.txt
+serveo_stderr.txt
+tunnel_links.txt
+tunnel_url_only.txt
+serveo_url.txt
+lt_output.txt
+inspect_out.txt
+url_chars.txt
+*.csv
+cloudflared.exe
+
+# Debug outputs & temporary artifacts
+*_out.txt
+debug_*.json
+models_*.txt
+*_debug.log
+ts_error.txt
+build-out*.txt
+
+env
