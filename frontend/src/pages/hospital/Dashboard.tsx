@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { TriageAssessmentModal } from "@/pages/hospital/TriageAssessmentModal";
 import { ResourceLoadBalancer } from "@/pages/hospital/ResourceLoadBalancer";
 import { FederatedImaging } from "@/components/hospital/fl/FederatedImaging";
-import { Cpu, ShieldCheck, Network } from "lucide-react";
 
 export type PriorityLevel = "RED" | "ORANGE" | "YELLOW" | "GREEN" | "BLUE";
 
@@ -206,10 +205,18 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                 <div className="flex items-center gap-6">
                     <div>
                         <h1 className="text-3xl font-heading font-bold text-foreground">
-                            Hospital Command Center
+                            {activeTab === 'federation' 
+                                ? 'Federated Clinical Intelligence' 
+                                : activeTab === 'resources' 
+                                ? 'Hospital Resource Balancer' 
+                                : 'Hospital Portal'}
                         </h1>
                         <p className="text-muted-foreground mt-1">
-                            Autonomous Triage, Resource Optimization & Federated Intelligence
+                            {activeTab === 'federation'
+                                ? 'Privacy-Preserving Collaborative Medical Imaging Network (H-03)'
+                                : activeTab === 'resources'
+                                ? 'Multi-Ward Bed Capacity & Critical Supply Matrix'
+                                : 'Emergency & Resource Management'}
                         </p>
                     </div>
                 </div>
@@ -217,10 +224,10 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                 {activeTab === 'queue' && (
                     <Button
                         onClick={() => setIsModalOpen(true)}
-                        className="gradient-primary gap-2 h-10 px-5 shadow-lg shadow-primary/20"
+                        className="gradient-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
                     >
-                        <Plus className="w-4 h-4" />
-                        New Assessment
+                        <Plus className="w-5 h-5" />
+                        New Triage Assessment
                     </Button>
                 )}
             </div>
@@ -231,39 +238,6 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                 <ResourceLoadBalancer />
             ) : (
                 <>
-                    {/* Federated Clinical Intelligence Summary Card */}
-                    <Card className="glass-card border-l-4 border-l-purple-500 bg-purple-950/10 border-purple-500/30 relative overflow-hidden group">
-                        <CardContent className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center shrink-0">
-                                    <Cpu className="w-6 h-6 text-purple-400 animate-pulse" />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-[11px] font-mono font-bold uppercase tracking-widest text-purple-400">
-                                            Federated Clinical Intelligence Network (H-03)
-                                        </p>
-                                        <span className="text-[10px] font-mono font-bold text-emerald-400 px-2 py-0.2 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-                                            ● OPERATIONAL
-                                        </span>
-                                    </div>
-                                    <h3 className="text-base font-bold tracking-tight text-foreground mt-0.5">
-                                        5 Hospitals Collaborating • 0 Raw Images Shared • AUC-ROC 91.4% • Privacy ε = 3.0
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                                        PneumoniaMNIST • FedBN Scanner Harmonization • DP-SGD Privacy • Multi-Krum Byzantine Sentinel
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => setActiveTab('federation')}
-                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono text-xs gap-1.5 h-9 px-4 shadow-md shadow-purple-600/20 shrink-0"
-                            >
-                                Open Federation Control Center →
-                            </Button>
-                        </CardContent>
-                    </Card>
-
                     {/* Quick Stats Row */}
             {!isLoading && !error && (
                 <div className="flex flex-col md:flex-row gap-6">

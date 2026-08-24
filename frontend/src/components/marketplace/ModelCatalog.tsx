@@ -106,10 +106,10 @@ export function ModelCatalog({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-indigo-950/20 via-purple-950/15 to-card/80 p-6 md:p-8 backdrop-blur-xl shadow-lg">
+      <div className="glass-card relative overflow-hidden rounded-3xl border border-border/80 bg-white/90 dark:bg-card/90 p-6 md:p-8 backdrop-blur-xl shadow-md">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/25 px-3 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-bold text-primary mb-3">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Decentralized AI Marketplace (H-03)</span>
             </div>
@@ -121,18 +121,14 @@ export function ModelCatalog({ onOpen }: { onOpen: (id: string) => void }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="p-3.5 rounded-2xl bg-card/80 border border-border/80 text-center min-w-[100px]">
-              <div className="text-xl font-black text-foreground font-mono">{models.length}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Registered Models</div>
+            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-card/80 border border-border/80 text-center min-w-[100px] shadow-sm">
+              <div className="text-xl font-black text-foreground font-mono">{MODELS.length}</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active Models</div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/25 hover:opacity-95 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Register New Model
-            </button>
+            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-card/80 border border-border/80 text-center min-w-[100px] shadow-sm">
+              <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">0</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Images Shared</div>
+            </div>
           </div>
         </div>
       </div>

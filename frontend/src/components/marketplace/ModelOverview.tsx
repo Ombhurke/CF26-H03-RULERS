@@ -137,9 +137,12 @@ export function ModelOverview({
         </div>
       </div>
 
-      {/* Model Banner */}
-      <div className="rounded-3xl border border-border/80 bg-gradient-to-br from-indigo-950/20 via-purple-950/15 to-card/80 p-6 md:p-8 backdrop-blur-xl shadow-lg">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Model Header */}
+      <div className="glass-card flex flex-col gap-5 rounded-3xl border border-border/80 bg-white/90 dark:bg-card/90 p-6 md:p-8 backdrop-blur-xl shadow-md lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/30">
+            <Cpu className="h-7 w-7" />
+          </div>
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="font-mono text-xs font-bold uppercase tracking-wider text-indigo-500">
