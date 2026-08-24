@@ -201,36 +201,34 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-6">
-                    <div>
-                        <h1 className="text-3xl font-heading font-bold text-foreground">
-                            {activeTab === 'federation' 
-                                ? 'Federated Clinical Intelligence' 
-                                : activeTab === 'resources' 
-                                ? 'Hospital Resource Balancer' 
-                                : 'Hospital Portal'}
-                        </h1>
-                        <p className="text-muted-foreground mt-1">
-                            {activeTab === 'federation'
-                                ? 'Privacy-Preserving Collaborative Medical Imaging Network (H-03)'
-                                : activeTab === 'resources'
-                                ? 'Multi-Ward Bed Capacity & Critical Supply Matrix'
-                                : 'Emergency & Resource Management'}
-                        </p>
+            {activeTab !== 'federation' && (
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-center gap-6">
+                        <div>
+                            <h1 className="text-3xl font-heading font-bold text-foreground">
+                                {activeTab === 'resources' 
+                                    ? 'Hospital Resource Balancer' 
+                                    : 'Hospital Portal'}
+                            </h1>
+                            <p className="text-muted-foreground mt-1">
+                                {activeTab === 'resources'
+                                    ? 'Multi-Ward Bed Capacity & Critical Supply Matrix'
+                                    : 'Emergency & Resource Management'}
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                {activeTab === 'queue' && (
-                    <Button
-                        onClick={() => setIsModalOpen(true)}
-                        className="gradient-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
-                    >
-                        <Plus className="w-5 h-5" />
-                        New Triage Assessment
-                    </Button>
-                )}
-            </div>
+                    {activeTab === 'queue' && (
+                        <Button
+                            onClick={() => setIsModalOpen(true)}
+                            className="gradient-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
+                        >
+                            <Plus className="w-5 h-5" />
+                            New Triage Assessment
+                        </Button>
+                    )}
+                </div>
+            )}
 
             {activeTab === 'federation' ? (
                 <FederatedImaging />
