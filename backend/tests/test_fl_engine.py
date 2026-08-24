@@ -14,16 +14,17 @@ import numpy as np
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "fl_core"))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from models import PneumoniaCNN
-from dp_sgd import apply_dp_sgd_perturbation, DPSGDConfig, PrivacyAccountant
-from fedbn import FedBNManager
-from defense import ByzantineSentinel
-from mmd_drift import DomainDriftMonitor, calculate_mmd
-from aggregation import TrustAwareAggregator
-from validation import ConsensusValidationGate
-from provenance import ProvenanceLedger, ModelProvenanceRecord
+from backend.fl_core.models import PneumoniaCNN
+from backend.fl_core.dp_sgd import apply_dp_sgd_perturbation, DPSGDConfig, PrivacyAccountant
+from backend.fl_core.fedbn import FedBNManager
+from backend.fl_core.defense import ByzantineSentinel
+from backend.fl_core.mmd_drift import DomainDriftMonitor, calculate_mmd
+from backend.fl_core.aggregation import TrustAwareAggregator
+from backend.fl_core.validation import ConsensusValidationGate
+from backend.fl_core.provenance import ProvenanceLedger, ModelProvenanceRecord
 
 def test_pneumonia_cnn_parameters():
     model = PneumoniaCNN(seed=42)

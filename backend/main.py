@@ -75,6 +75,7 @@ from routes.doctor import router as doctor_router
 from routes.patient import router as patient_router
 from routes.payment import router as payment_router
 from routes.whatsapp import router as whatsapp_router
+from routes.hospital_fl import router as fl_router
 
 app.include_router(health_router)
 app.include_router(triage_router)
@@ -84,6 +85,7 @@ app.include_router(patient_router)
 app.include_router(payment_router)
 app.include_router(whatsapp_router)
 app.include_router(resource_router)
+app.include_router(fl_router)
 
 PORT = int(os.getenv("PORT", 8000))
 
