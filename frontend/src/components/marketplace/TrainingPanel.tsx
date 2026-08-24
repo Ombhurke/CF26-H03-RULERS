@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   Play,
   Loader2,
@@ -11,15 +11,18 @@ import {
   FileCheck2,
   X,
   Lock,
+  Hospital,
 } from "lucide-react";
-import type { ModelDefinition } from "@/lib/models-catalog";
+import type { FLModel } from "@/lib/fl-service";
 import type { ModelRuntimeState } from "@/lib/marketplace-store";
 import { trainModel, toggleAttack, toggleDomainShift, resetModel } from "@/hooks/useMarketplace";
+import { upsertMyHospitalNode, getMyHospitalNode } from "@/lib/fl-service";
 
 const STATUS_STYLES: Record<string, string> = {
   Success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   Harmonized: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
   Blocked: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
+  Warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
 };
 
 function formatTime(ts: number) {
@@ -62,21 +65,54 @@ export function TrainingPanel({
   model,
   state,
 }: {
-  model: ModelDefinition;
+  model: FLModel;
   state: ModelRuntimeState;
 }) {
   const [dataset, setDataset] = useState<File | null>(null);
+  const [localRegisteredSamples, setLocalRegisteredSamples] = useState<number>(0);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const done = state.round >= state.maxRounds;
-  const canTrain = Boolean(dataset) && !state.isTraining && !done;
+  const canTrain = (Boolean(dataset) || localRegisteredSamples > 0) && !state.isTraining && !done;
 
-  function handleDatasetChange(event: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    // Check if the current hospital has already registered a node for this model
+    getMyHospitalNode(model.id).then((node) => {
+      if (node) {
+        setLocalRegisteredSamples(node.local_samples_count || 0);
+      }
+    });
+  }, [model.id]);
+
+  async function handleDatasetChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     setDataset(file);
+
+    if (file) {
+      setIsRegistering(true);
+      try {
+        // Calculate dynamic mock cohort size based on file size or default count
+        const sampleCount = Math.max(model.min_samples || 200, Math.round((file.size / 1024) * 0.4) + 120);
+        setLocalRegisteredSamples(sampleCount);
+
+        // Persist the hospital node registration to Supabase
+        await upsertMyHospitalNode(model.id, {
+          datasetName: file.name,
+          datasetSizeMb: +(file.size / 1024 / 1024).toFixed(2),
+          localSamplesCount: sampleCount,
+          nodeStatus: "ready",
+        });
+      } catch (err) {
+        console.error("Failed to register hospital dataset in Supabase:", err);
+      } finally {
+        setIsRegistering(false);
+      }
+    }
   }
 
   // Cycle the highlighted step through the guided list as rounds progress.
-  const stepCount = model.trainingSteps.length;
+  const steps = model.training_steps || [];
+  const stepCount = steps.length > 0 ? steps.length : 1;
   const currentStep = state.round === 0 ? 0 : (state.round - 1) % stepCount;
 
   return (
@@ -88,7 +124,7 @@ export function TrainingPanel({
           <h3 className="text-sm font-bold text-foreground">How to Train &amp; Contribute to This Model</h3>
         </div>
         <ol className="divide-y divide-border/40">
-          {model.trainingSteps.map((step, i) => {
+          {steps.map((step, i) => {
             const active = state.isTraining && i === currentStep;
             const complete = state.round > 0 && (i < currentStep || done);
             return (
@@ -141,9 +177,10 @@ export function TrainingPanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-card px-5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all shadow-sm"
+            disabled={isRegistering}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-card px-5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all shadow-sm disabled:opacity-50"
           >
-            <UploadCloud className="h-4 w-4" />
+            {isRegistering ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
             Select Dataset File
           </button>
         </div>
@@ -154,7 +191,7 @@ export function TrainingPanel({
               <FileCheck2 className="h-4 w-4 shrink-0 text-emerald-500" />
               <span className="truncate font-bold font-mono">{dataset.name}</span>
               <span className="shrink-0 text-[11px] opacity-75">
-                ({(dataset.size / 1024 / 1024).toFixed(2)} MB · Ready for DP-SGD)
+                ({(dataset.size / 1024 / 1024).toFixed(2)} MB · {localRegisteredSamples.toLocaleString()} Labeled Studies · Ready)
               </span>
             </div>
             <button
@@ -162,6 +199,7 @@ export function TrainingPanel({
               aria-label="Remove selected dataset"
               onClick={() => {
                 setDataset(null);
+                setLocalRegisteredSamples(0);
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
               className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-500/20 transition-colors"
@@ -171,7 +209,7 @@ export function TrainingPanel({
           </div>
         ) : (
           <div className="mt-4 rounded-xl border border-dashed border-indigo-500/30 bg-card/60 px-4 py-3 text-center text-xs text-muted-foreground">
-            No local volume loaded yet. Select a dataset above to unlock the training controls.
+            No local volume loaded yet. Select a dataset above to register your local node cohort and enable training.
           </div>
         )}
       </div>
@@ -182,7 +220,7 @@ export function TrainingPanel({
           <div>
             <div className="text-sm font-bold text-foreground">Execute Collaborative Training Rounds</div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              Dispatches local DP-SGD weight delta updates across all {state.sites.length} hospitals.
+              Dispatches local DP-SGD weight delta updates and aggregates into the global model.
             </div>
           </div>
           <button
@@ -200,7 +238,7 @@ export function TrainingPanel({
               ? "Training Complete"
               : state.isTraining
               ? `Training Round… (${state.roundsRemaining} remaining)`
-              : dataset
+              : dataset || localRegisteredSamples > 0
               ? "Train 10 Rounds from Dataset"
               : "Select Dataset to Train"}
           </button>

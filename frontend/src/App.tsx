@@ -348,8 +348,10 @@ function MainLayout() {
           <Route
             path="/hospital/federation"
             element={
-              <RoleRoute allowedRole="hospital">
-                <HospitalDashboard defaultTab="federation" />
+              <RoleRoute allowedRole={["hospital", "doctor"]}>
+                <div className="max-w-7xl mx-auto px-4 py-8">
+                  <MarketplacePage />
+                </div>
               </RoleRoute>
             }
           />

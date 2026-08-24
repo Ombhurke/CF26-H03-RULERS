@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowUpRight, Building2, Users } from "lucide-react";
-import type { ModelDefinition } from "@/lib/models-catalog";
+import type { FLModel } from "@/lib/fl-service";
 import { useModelState } from "@/hooks/useMarketplace";
 
 const MODALITY_STYLES: Record<string, string> = {
@@ -28,14 +28,16 @@ export function ModelCard({
   model,
   onOpen,
 }: {
-  model: ModelDefinition;
+  model: FLModel;
   onOpen: (id: string) => void;
 }) {
   const runtime = useModelState(model.id);
-  const accuracy = runtime?.accuracy ?? model.baseAccuracy;
-  const round = runtime?.round ?? 0;
+  const accuracy = runtime?.accuracy ?? model.current_accuracy ?? model.base_accuracy;
+  const round = runtime?.round ?? model.current_round ?? 0;
   const isTraining = runtime?.isTraining ?? false;
-  const totalSamples = model.hospitals.reduce((s, h) => s + h.samples, 0);
+  const sites = runtime?.sites ?? [];
+  const totalSamples = sites.reduce((sum, s) => sum + (s.samples || 0), 0);
+  const hospitalCount = sites.length > 0 ? sites.length : 1;
 
   return (
     <button
@@ -53,13 +55,13 @@ export function ModelCard({
         </span>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold border ${
-            STATUS_STYLES[model.status]
+            STATUS_STYLES[model.status] || STATUS_STYLES.recruiting
           }`}
         >
           {isTraining && (
             <span className="h-1.5 w-1.5 animate-ping rounded-full bg-current" />
           )}
-          {isTraining ? "Training Live" : STATUS_LABEL[model.status]}
+          {isTraining ? "Training Live" : STATUS_LABEL[model.status] || "Recruiting Sites"}
         </span>
       </div>
 
@@ -88,7 +90,7 @@ export function ModelCard({
           <div className="font-mono font-bold text-foreground">
             {model.architecture.split(" ")[0]}
           </div>
-          <div className="text-[11px] opacity-80">{model.parameters} params</div>
+          <div className="text-[11px] opacity-80">{model.parameters_count} params</div>
         </div>
       </div>
 
@@ -104,11 +106,11 @@ export function ModelCard({
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5 text-indigo-500" />
-            {model.hospitals.length} Hospitals
+            {hospitalCount} Hospital{hospitalCount > 1 ? "s" : ""}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-emerald-500" />
-            {totalSamples.toLocaleString()} Studies
+            {totalSamples > 0 ? `${totalSamples.toLocaleString()} Studies` : `Min ${model.min_samples} req.`}
           </span>
         </div>
         <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
