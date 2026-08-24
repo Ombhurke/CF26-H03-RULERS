@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Search, Sparkles, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { MODELS } from "@/lib/models-catalog";
 import { ModelCard } from "./ModelCard";
 
@@ -32,35 +32,7 @@ export function ModelCatalog({ onOpen }: { onOpen: (id: string) => void }) {
   }, [query, filter]);
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="glass-card relative overflow-hidden rounded-3xl border border-border/80 bg-white/90 dark:bg-card/90 p-6 md:p-8 backdrop-blur-xl shadow-md">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-bold text-primary mb-3">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Decentralized AI Marketplace (H-03)</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground font-heading">
-              Federated Medical AI Model Catalog
-            </h1>
-            <p className="mt-2 text-xs md:text-sm leading-relaxed text-muted-foreground">
-              Participate in privacy-preserving collaborative model training. Supply local de-identified cohorts from your hospital&apos;s scanners to pool clinical intelligence without ever transferring raw patient radiographs or DICOM slices.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-card/80 border border-border/80 text-center min-w-[100px] shadow-sm">
-              <div className="text-xl font-black text-foreground font-mono">{MODELS.length}</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active Models</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-card/80 border border-border/80 text-center min-w-[100px] shadow-sm">
-              <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">0</div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Images Shared</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {/* Search and Filters Bar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative w-full lg:max-w-sm">
