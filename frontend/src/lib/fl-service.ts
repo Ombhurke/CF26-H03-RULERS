@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { API_BASE_URL } from "@/lib/api";
 import { sha256Hex } from "@/lib/fl-simulation";
 
 export interface FLModel {
@@ -57,19 +58,35 @@ export interface FLHospitalNode {
   updated_at?: string;
 }
 
-export interface FLTrainingRound {
+export interface FLTrainingJob {
   id: string;
   model_id: string;
-  round_number: number;
-  global_accuracy: number;
-  global_loss: number;
-  epsilon_spent: number;
-  mmd_drift: number;
-  participating_nodes_count: number;
-  accepted_nodes_count: number;
-  rejected_nodes_count: number;
-  checkpoint_hash: string;
-  aggregated_at: string;
+  hospital_id: string;
+  hospital_name: string;
+  dataset_name: string;
+  sample_count: number;
+  epochs: number;
+  batch_size: number;
+  baseline_accuracy: number;
+  candidate_accuracy: number;
+  candidate_f1: number;
+  candidate_precision: number;
+  candidate_recall: number;
+  candidate_loss: number;
+  gate_decision: "ACCEPTED" | "REJECTED" | "TRAINING" | "FAILED";
+  gate_reason: string;
+  duration_seconds: number;
+  epoch_metrics: Array<{
+    epoch: number;
+    total_epochs: number;
+    train_loss: number;
+    train_accuracy: number;
+    epoch_duration_seconds: number;
+    eta_seconds: number;
+    phase: string;
+  }>;
+  provenance_hash: string;
+  created_at?: string;
 }
 
 export interface FLAuditEvent {
@@ -84,7 +101,7 @@ export interface FLAuditEvent {
   created_at: string;
 }
 
-/** Fetch all models directly from Supabase fl_models table. Returns empty array if none exist. */
+/** Fetch all models directly from Supabase fl_models table. */
 export async function getFLModels(): Promise<FLModel[]> {
   try {
     const { data, error } = await supabase
@@ -93,10 +110,8 @@ export async function getFLModels(): Promise<FLModel[]> {
       .order("created_at", { ascending: true });
 
     if (error || !data) {
-      console.warn("No fl_models found in Supabase:", error?.message);
       return [];
     }
-
     return data as FLModel[];
   } catch (err) {
     console.error("Failed to load fl_models from Supabase:", err);
@@ -117,69 +132,6 @@ export async function getFLModelById(id: string): Promise<FLModel | undefined> {
     return data as FLModel;
   } catch (err) {
     return undefined;
-  }
-}
-
-/** Create and register a new model in Supabase */
-export async function createFLModel(model: Partial<FLModel>): Promise<FLModel | null> {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const modelId = model.id || (model.short_name || model.name || "model").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-    const payload = {
-      id: modelId,
-      name: model.name || "Custom Clinical Model",
-      short_name: model.short_name || "Net",
-      modality: model.modality || "Chest X-ray",
-      task: model.task || "Binary classification",
-      summary: model.summary || "Clinical diagnostic model",
-      description: model.description || "Collaborative federated model",
-      architecture: model.architecture || "ResNet-18",
-      parameters_count: model.parameters_count || "11.2M",
-      classes: model.classes || ["Normal", "Abnormal"],
-      input_spec: model.input_spec || { resolution: "224 × 224", channels: "1 (grayscale)", format: "DICOM or PNG" },
-      data_requirements: model.data_requirements || [
-        { label: "Modality", value: model.modality || "Clinical Imaging" },
-        { label: "Min. studies", value: "100 per site" },
-        { label: "PHI", value: "De-identified at source" },
-      ],
-      preprocessing_steps: model.preprocessing_steps || [
-        "Local intensity normalization",
-        "Spatial resampling",
-      ],
-      training_steps: model.training_steps || [
-        { title: "Stage local dataset", detail: "Load de-identified studies in the local hospital volume." },
-        { title: "Run DP-SGD training", detail: "Execute local epochs with differential privacy noise." },
-        { title: "Submit weight delta", detail: "Transmit screened gradient weights to coordinator." },
-      ],
-      base_accuracy: model.base_accuracy ?? 0.70,
-      target_accuracy: model.target_accuracy ?? 0.95,
-      current_accuracy: model.base_accuracy ?? 0.70,
-      current_round: 0,
-      max_rounds: model.max_rounds ?? 50,
-      epsilon_max: model.epsilon_max ?? 5.0,
-      current_epsilon: 0.0,
-      current_loss: 0.90,
-      current_mmd: 0.14,
-      status: "recruiting",
-      min_samples: model.min_samples ?? 100,
-      accent: model.accent || "indigo",
-      created_by: userData.user?.id || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from("fl_models")
-      .insert(payload)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as FLModel;
-  } catch (err) {
-    console.error("Failed to create FL model:", err);
-    return null;
   }
 }
 
@@ -280,23 +232,121 @@ export async function upsertMyHospitalNode(
   }
 }
 
-/** Fetch historical training rounds for a model */
-export async function getFLTrainingRounds(modelId: string): Promise<FLTrainingRound[]> {
-  try {
-    const { data, error } = await supabase
-      .from("fl_training_rounds")
-      .select("*")
-      .eq("model_id", modelId)
-      .order("round_number", { ascending: true });
+/** Trigger PyTorch CNN Training Job in Backend API */
+export async function startBackendTrainingJob(params: {
+  modelId: string;
+  datasetName: string;
+  sampleCount: number;
+  epochs?: number;
+  batchSize?: number;
+  baselineAccuracy?: number;
+  isAdversarial?: boolean;
+}): Promise<{ success: boolean; jobId: string }> {
+  const { data: userData } = await supabase.auth.getUser();
+  const hospitalId = userData?.user?.id || "demo-hospital-node";
 
-    if (error || !data) return [];
-    return data as FLTrainingRound[];
+  let hospitalName = "Local Hospital Node";
+  if (userData?.user?.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    hospitalName = profile?.full_name || userData.user.email?.split("@")[0] || hospitalName;
+  }
+
+  const res = await fetch(`${API_BASE_URL}/fl/train-job`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model_id: params.modelId,
+      hospital_id: hospitalId,
+      hospital_name: hospitalName,
+      dataset_name: params.datasetName,
+      sample_count: params.sampleCount,
+      epochs: params.epochs || 10,
+      batch_size: params.batchSize || 16,
+      baseline_accuracy: params.baselineAccuracy || 0.78,
+      is_adversarial: params.isAdversarial || false,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to start backend training job: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return { success: true, jobId: data.job_id };
+}
+
+/** Connect to SSE Stream for live epoch-by-epoch visual telemetry */
+export function streamTrainingProgress(
+  jobId: string,
+  onProgress: (data: any) => void,
+  onComplete: (data: FLTrainingJob) => void,
+  onError: (err: any) => void
+): () => void {
+  const eventSource = new EventSource(`${API_BASE_URL}/fl/train-stream/${jobId}`);
+
+  eventSource.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === "progress") {
+        onProgress(payload.data);
+      } else if (payload.type === "phase") {
+        onProgress(payload.data);
+      } else if (payload.type === "complete") {
+        onComplete(payload.data);
+        eventSource.close();
+      } else if (payload.type === "error") {
+        onError(payload.data);
+        eventSource.close();
+      }
+    } catch (e) {
+      console.error("SSE parse error:", e);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    console.warn("SSE connection closed or completed:", err);
+    eventSource.close();
+  };
+
+  return () => {
+    eventSource.close();
+  };
+}
+
+/** Fetch historical training jobs for the hospital */
+export async function getHospitalTrainingHistory(hospitalId?: string): Promise<FLTrainingJob[]> {
+  try {
+    let resolvedHospitalId = hospitalId;
+    if (!resolvedHospitalId) {
+      const { data: userData } = await supabase.auth.getUser();
+      resolvedHospitalId = userData?.user?.id || "demo-hospital-node";
+    }
+
+    const res = await fetch(`${API_BASE_URL}/fl/history/${resolvedHospitalId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.history) return data.history as FLTrainingJob[];
+    }
+
+    // Supabase fallback query
+    const { data } = await supabase
+      .from("fl_training_jobs")
+      .select("*")
+      .eq("hospital_id", resolvedHospitalId)
+      .order("created_at", { ascending: false });
+
+    return (data || []) as FLTrainingJob[];
   } catch (err) {
+    console.error("Failed to load hospital training history:", err);
     return [];
   }
 }
 
-/** Fetch cryptographic audit ledger events for a model */
+/** Fetch audit ledger events for a model */
 export async function getFLAuditLedger(modelId: string): Promise<FLAuditEvent[]> {
   try {
     const { data, error } = await supabase
@@ -339,7 +389,6 @@ export async function recordTrainingRoundCommit(params: {
     const commitSummary = `model=${params.modelId}|round=${params.roundNumber}|acc=${params.accuracy.toFixed(4)}|loss=${params.loss.toFixed(4)}`;
     const checkpointHash = await sha256Hex(commitSummary);
 
-    // 1. Insert training round
     await supabase.from("fl_training_rounds").upsert({
       model_id: params.modelId,
       round_number: params.roundNumber,
@@ -355,7 +404,6 @@ export async function recordTrainingRoundCommit(params: {
       aggregated_at: new Date().toISOString(),
     }, { onConflict: "model_id,round_number" });
 
-    // 2. Update model table current stats
     await supabase.from("fl_models").update({
       current_round: params.roundNumber,
       current_accuracy: params.accuracy,
@@ -366,7 +414,6 @@ export async function recordTrainingRoundCommit(params: {
       updated_at: new Date().toISOString(),
     }).eq("id", params.modelId);
 
-    // 3. Insert audit ledger events
     if (params.auditEvents.length > 0) {
       const ledgerRows = params.auditEvents.map((evt) => ({
         model_id: params.modelId,
