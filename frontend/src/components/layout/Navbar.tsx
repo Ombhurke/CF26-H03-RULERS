@@ -190,6 +190,7 @@ export function Navbar() {
 
   const cmdItems = [
     { label: "Dashboard", to: dashboardHref },
+    { label: "Federated AI Models Marketplace", to: "/hospital/federation" },
     ...links.map(l => ({
       label: l.label,
       to: l.to

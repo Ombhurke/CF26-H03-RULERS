@@ -47,6 +47,7 @@ const UpdatePassword = React.lazy(() =>
 
 const PaymentSuccess = React.lazy(() => import("@/pages/PaymentSuccess"));
 const PaymentCancel = React.lazy(() => import("@/pages/PaymentCancel"));
+const MarketplacePage = React.lazy(() => import("@/components/marketplace/Marketplace"));
 
 function LoadingSpinner() {
   return (
@@ -349,6 +350,16 @@ function MainLayout() {
             element={
               <RoleRoute allowedRole="hospital">
                 <HospitalDashboard defaultTab="federation" />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/marketplace"
+            element={
+              <RoleRoute allowedRole={["patient", "doctor", "hospital", "pharmacist"]}>
+                <div className="max-w-7xl mx-auto px-4 py-8">
+                  <MarketplacePage />
+                </div>
               </RoleRoute>
             }
           />
