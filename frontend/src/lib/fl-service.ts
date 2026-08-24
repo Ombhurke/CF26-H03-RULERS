@@ -232,10 +232,13 @@ export async function upsertMyHospitalNode(
   }
 }
 
-/** Trigger PyTorch CNN Training Job in Backend API */
+/** Trigger PyTorch CNN Training Job in Backend API with Real File Upload */
 export async function startBackendTrainingJob(params: {
   modelId: string;
+  datasetFile?: File | null;
   datasetName: string;
+  modality?: string;
+  classes?: string[];
   sampleCount: number;
   epochs?: number;
   batchSize?: number;
@@ -255,20 +258,24 @@ export async function startBackendTrainingJob(params: {
     hospitalName = profile?.full_name || userData.user.email?.split("@")[0] || hospitalName;
   }
 
+  const formData = new FormData();
+  formData.append("model_id", params.modelId);
+  formData.append("hospital_id", hospitalId);
+  formData.append("hospital_name", hospitalName);
+  formData.append("modality", params.modality || "Chest X-ray");
+  formData.append("classes_json", JSON.stringify(params.classes || ["Normal", "Pneumonia / Infiltration"]));
+  formData.append("epochs", String(params.epochs || 10));
+  formData.append("batch_size", String(params.batchSize || 16));
+  formData.append("baseline_accuracy", String(params.baselineAccuracy || 0.76));
+  formData.append("is_adversarial", String(params.isAdversarial || false));
+
+  if (params.datasetFile) {
+    formData.append("file", params.datasetFile);
+  }
+
   const res = await fetch(`${API_BASE_URL}/fl/train-job`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model_id: params.modelId,
-      hospital_id: hospitalId,
-      hospital_name: hospitalName,
-      dataset_name: params.datasetName,
-      sample_count: params.sampleCount,
-      epochs: params.epochs || 10,
-      batch_size: params.batchSize || 16,
-      baseline_accuracy: params.baselineAccuracy || 0.78,
-      is_adversarial: params.isAdversarial || false,
-    }),
+    body: formData,
   });
 
   if (!res.ok) {
@@ -279,10 +286,11 @@ export async function startBackendTrainingJob(params: {
   return { success: true, jobId: data.job_id };
 }
 
-/** Connect to SSE Stream for live epoch-by-epoch visual telemetry */
+/** Connect to SSE Stream for live epoch-by-epoch visual telemetry & background logs */
 export function streamTrainingProgress(
   jobId: string,
   onProgress: (data: any) => void,
+  onLog: (logMessage: string) => void,
   onComplete: (data: FLTrainingJob) => void,
   onError: (err: any) => void
 ): () => void {
@@ -295,10 +303,17 @@ export function streamTrainingProgress(
         onProgress(payload.data);
       } else if (payload.type === "phase") {
         onProgress(payload.data);
+      } else if (payload.type === "log") {
+        onLog(payload.data.message);
+      } else if (payload.type === "validation_error") {
+        onLog(`[ERROR] ${payload.data.gate_reason}`);
+        onError(payload.data);
+        eventSource.close();
       } else if (payload.type === "complete") {
         onComplete(payload.data);
         eventSource.close();
       } else if (payload.type === "error") {
+        onLog(`[ERROR] ${payload.data.error}`);
         onError(payload.data);
         eventSource.close();
       }
