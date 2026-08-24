@@ -1,8 +1,11 @@
 import React from "react";
 import { Database, CheckCircle2, Layers, ShieldCheck } from "lucide-react";
-import type { ModelDefinition } from "@/lib/models-catalog";
+import type { FLModel } from "@/lib/fl-service";
 
-export function DataRequirements({ model }: { model: ModelDefinition }) {
+export function DataRequirements({ model }: { model: FLModel }) {
+  const reqs = model.data_requirements || [];
+  const prep = model.preprocessing_steps || [];
+
   return (
     <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border/60 px-6 py-4 bg-muted/20">
@@ -20,19 +23,19 @@ export function DataRequirements({ model }: { model: ModelDefinition }) {
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between items-center py-1 border-b border-border/30">
               <dt className="text-muted-foreground">Resolution</dt>
-              <dd className="font-mono font-semibold text-foreground">{model.input.resolution}</dd>
+              <dd className="font-mono font-semibold text-foreground">{model.input_spec?.resolution || "224 × 224"}</dd>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-border/30">
               <dt className="text-muted-foreground">Channels</dt>
-              <dd className="font-mono font-semibold text-foreground">{model.input.channels}</dd>
+              <dd className="font-mono font-semibold text-foreground">{model.input_spec?.channels || "1 (grayscale)"}</dd>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-border/30">
               <dt className="text-muted-foreground">File Format</dt>
-              <dd className="font-mono font-semibold text-foreground">{model.input.format}</dd>
+              <dd className="font-mono font-semibold text-foreground">{model.input_spec?.format || "DICOM / PNG"}</dd>
             </div>
             <div className="flex justify-between items-center py-1">
               <dt className="text-muted-foreground">Min. Local Cohort</dt>
-              <dd className="font-mono font-semibold text-foreground">{model.minSamples.toLocaleString()} studies</dd>
+              <dd className="font-mono font-semibold text-foreground">{(model.min_samples || 100).toLocaleString()} studies</dd>
             </div>
           </dl>
         </div>
@@ -44,7 +47,7 @@ export function DataRequirements({ model }: { model: ModelDefinition }) {
             Eligibility Checklist
           </div>
           <ul className="mt-4 space-y-2.5 text-sm">
-            {model.dataRequirements.map((req) => (
+            {reqs.map((req) => (
               <li key={req.label} className="flex items-start gap-2.5">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                 <span className="text-muted-foreground leading-relaxed">
@@ -62,7 +65,7 @@ export function DataRequirements({ model }: { model: ModelDefinition }) {
           Local Preprocessing Pipeline (Runs completely on hospital node)
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {model.preprocessing.map((step, i) => (
+          {prep.map((step, i) => (
             <span
               key={step}
               className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-muted/40 px-3 py-2 text-xs font-medium text-foreground"

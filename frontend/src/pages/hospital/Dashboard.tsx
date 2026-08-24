@@ -214,46 +214,6 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                     </div>
                 </div>
 
-                {/* Sub-Tab Navigation Bar */}
-                <div className="flex items-center gap-2 p-1.5 rounded-xl bg-card/80 border border-border/60 backdrop-blur-md">
-                    <button
-                        onClick={() => setActiveTab('queue')}
-                        className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'queue'
-                                ? 'bg-primary text-white shadow-md shadow-primary/25'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                        }`}
-                    >
-                        <Activity className="w-3.5 h-3.5" />
-                        Emergency Triage
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab('resources')}
-                        className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'resources'
-                                ? 'bg-primary text-white shadow-md shadow-primary/25'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                        }`}
-                    >
-                        <BedDouble className="w-3.5 h-3.5" />
-                        Resource Balancer
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab('federation')}
-                        className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'federation'
-                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/25'
-                                : 'text-purple-400 hover:text-purple-300 hover:bg-purple-950/30'
-                        }`}
-                    >
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                        <Cpu className="w-3.5 h-3.5" />
-                        Federated Intelligence (H-03)
-                    </button>
-                </div>
-
                 {activeTab === 'queue' && (
                     <Button
                         onClick={() => setIsModalOpen(true)}

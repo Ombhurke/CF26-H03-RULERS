@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { getModel } from "@/lib/models-catalog";
+import { useFLModel } from "@/hooks/useMarketplace";
 import { ModelCatalog } from "./ModelCatalog";
 import { ModelOverview } from "./ModelOverview";
 
 export function Marketplace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = selectedId ? getModel(selectedId) : undefined;
+  const selected = useFLModel(selectedId || "");
 
   return (
     <div className="w-full space-y-6">
