@@ -10,6 +10,12 @@ import { TriageAssessmentModal } from "@/pages/hospital/TriageAssessmentModal";
 import { ResourceLoadBalancer } from "@/pages/hospital/ResourceLoadBalancer";
 import { FederatedImaging } from "@/components/hospital/fl/FederatedImaging";
 
+import { OPDQueueManagement } from "@/components/hospital/OPDQueueManagement";
+import { LISManagement } from "@/components/hospital/LISManagement";
+import { RCMBillingManagement } from "@/components/hospital/RCMBillingManagement";
+import { SurgicalOTBloodBank } from "@/components/hospital/SurgicalOTBloodBank";
+import { InteroperabilityAudit } from "@/components/hospital/InteroperabilityAudit";
+
 export type PriorityLevel = "RED" | "ORANGE" | "YELLOW" | "GREEN" | "BLUE";
 
 export interface TriagePatient {
@@ -23,11 +29,13 @@ export interface TriagePatient {
         spo2: string;
         temp: string;
     };
-    symptoms: string;
-    priority_level: PriorityLevel;
-    ai_confidence: number;
-    ai_reasoning: string;
-    status: string;
+    category: PriorityLevel;
+    chief_complaint: string;
+    ai_summary: string;
+    risk_score: number;
+    recommended_action: string;
+    status: "waiting" | "in_treatment" | "discharged";
+    bed_assigned?: string;
 }
 
 const PRIORITY_ORDER: Record<PriorityLevel, number> = {
@@ -48,13 +56,13 @@ const PRIORITY_COLORS: Record<PriorityLevel, string> = {
 
 // Triage Alert types are now managed in AlertProvider.tsx
 
-export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab?: 'queue' | 'resources' | 'federation' }) {
+export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab?: 'queue' | 'opd' | 'resources' | 'lis' | 'ot' | 'rcm' | 'interop' | 'federation' }) {
     const navigate = useNavigate();
     const [queue, setQueue] = useState<TriagePatient[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState<'queue' | 'resources' | 'federation'>(defaultTab);
+    const [activeTab, setActiveTab] = useState<'queue' | 'opd' | 'resources' | 'lis' | 'ot' | 'rcm' | 'interop' | 'federation'>(defaultTab);
     
     useEffect(() => {
         setActiveTab(defaultTab);
@@ -201,39 +209,104 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-            {activeTab !== 'federation' && (
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex items-center gap-6">
-                        <div>
-                            <h1 className="text-3xl font-heading font-bold text-foreground">
-                                {activeTab === 'resources' 
-                                    ? 'Hospital Resource Balancer' 
-                                    : 'Hospital Portal'}
-                            </h1>
-                            <p className="text-muted-foreground mt-1">
-                                {activeTab === 'resources'
-                                    ? 'Multi-Ward Bed Capacity & Critical Supply Matrix'
-                                    : 'Emergency & Resource Management'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {activeTab === 'queue' && (
-                        <Button
-                            onClick={() => setIsModalOpen(true)}
-                            className="gradient-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="w-5 h-5" />
-                            New Triage Assessment
-                        </Button>
-                    )}
-                </div>
-            )}
+            {/* Enterprise HMS Navigation Tabs */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+                <button
+                    onClick={() => setActiveTab("queue")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "queue"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🚨 Emergency Triage
+                </button>
+                <button
+                    onClick={() => setActiveTab("opd")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "opd"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🗓️ OPD Clinic &amp; Tokens
+                </button>
+                <button
+                    onClick={() => setActiveTab("resources")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "resources"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🛏️ Bed Balancer &amp; ADT
+                </button>
+                <button
+                    onClick={() => setActiveTab("lis")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "lis"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🧪 Laboratory (LIS) &amp; Delta
+                </button>
+                <button
+                    onClick={() => setActiveTab("ot")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "ot"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    ✂️ Surgical OT &amp; Blood Bank
+                </button>
+                <button
+                    onClick={() => setActiveTab("rcm")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "rcm"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    💳 Financial Billing (RCM)
+                </button>
+                <button
+                    onClick={() => setActiveTab("interop")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "interop"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🌐 FHIR &amp; ABDM
+                </button>
+                <button
+                    onClick={() => setActiveTab("federation")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                        activeTab === "federation"
+                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
+                    }`}
+                >
+                    🧠 Collaborative AI Models
+                </button>
+            </div>
 
             {activeTab === 'federation' ? (
                 <FederatedImaging />
             ) : activeTab === 'resources' ? (
                 <ResourceLoadBalancer />
+            ) : activeTab === 'opd' ? (
+                <OPDQueueManagement />
+            ) : activeTab === 'lis' ? (
+                <LISManagement />
+            ) : activeTab === 'ot' ? (
+                <SurgicalOTBloodBank />
+            ) : activeTab === 'rcm' ? (
+                <RCMBillingManagement />
+            ) : activeTab === 'interop' ? (
+                <InteroperabilityAudit />
             ) : (
                 <>
                     {/* Quick Stats Row */}

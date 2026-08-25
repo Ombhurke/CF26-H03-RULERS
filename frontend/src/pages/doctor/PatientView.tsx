@@ -11,7 +11,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 
-import { ArrowLeft, User, Calendar, FileText, AlertCircle, Eye, Download } from "lucide-react";
+import { ArrowLeft, User, Calendar, FileText, AlertCircle, Eye, Download, Stethoscope, ShieldCheck, Scan } from "lucide-react";
+import { CPOEOrderModal } from "@/components/doctor/CPOEOrderModal";
+import { BedsideEMARModal } from "@/components/nursing/BedsideEMARModal";
+import { PACSViewerModal } from "@/components/hospital/PACSViewerModal";
 
 type ConsentRow = {
   id: string;
@@ -62,6 +65,10 @@ export function PatientView() {
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string>("");
+
+  const [showCPOEModal, setShowCPOEModal] = useState(false);
+  const [showEMARModal, setShowEMARModal] = useState(false);
+  const [showPACSModal, setShowPACSModal] = useState(false);
 
   const isExpired = useMemo(() => {
     if (!consent?.expires_at) return false;
@@ -271,9 +278,28 @@ export function PatientView() {
               </div>
             </div>
 
-            <Badge className="px-3 py-1 text-sm bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-              {accessLabel}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setShowPACSModal(true)}
+                variant="outline"
+                className="gap-2 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <Scan className="w-4 h-4" /> Web DICOM PACS
+              </Button>
+              <Button
+                onClick={() => setShowCPOEModal(true)}
+                className="gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-md shadow-primary/25"
+              >
+                <Stethoscope className="w-4 h-4" /> Place CPOE Order &amp; CDSS
+              </Button>
+              <Button
+                onClick={() => setShowEMARModal(true)}
+                variant="outline"
+                className="gap-2 rounded-xl border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <ShieldCheck className="w-4 h-4" /> Bedside eMAR Verification
+              </Button>
+            </div>
           </div>
         </motion.div>
 
@@ -385,6 +411,69 @@ export function PatientView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* CPOE Order Modal with CDSS Engine */}
+      {showCPOEModal && (
+        <CPOEOrderModal
+          isOpen={showCPOEModal}
+          onClose={() => setShowCPOEModal(false)}
+          patientId={patientId || "p1"}
+          patientName={displayName}
+          uhid={startId}
+          doctorId={doctorRowId || "doc-01"}
+          doctorName={user?.user_metadata?.name || "Dr. Attending Physician"}
+          currentMedications={["Warfarin 5mg (Coumadin)", "Lisinopril 10mg"]}
+          knownAllergies={["Penicillin"]}
+          onOrderSuccess={() => {
+            setShowCPOEModal(false);
+          }}
+        />
+      )}
+
+      {/* Bedside Nursing eMAR Modal */}
+      {showEMARModal && (
+        <BedsideEMARModal
+          isOpen={showEMARModal}
+          onClose={() => setShowEMARModal(false)}
+          patientId={patientId || "p1"}
+          patientName={displayName}
+          expectedUhid={startId}
+          orderId="cpoe-order-001"
+          medicationName="Ciprofloxacin 500mg Oral Tablet"
+          dosage="500mg"
+          route="Oral (PO)"
+          nurseName="Staff Nurse Priya S."
+          onAdministerSuccess={() => {
+            setShowEMARModal(false);
+          }}
+        />
+      )}
+
+      {/* Diagnostic Web DICOM PACS Viewer Modal */}
+      {showPACSModal && (
+        <PACSViewerModal
+          isOpen={showPACSModal}
+          onClose={() => setShowPACSModal(false)}
+          study={{
+            id: "pacs-001",
+            uhid: startId,
+            patient_name: displayName,
+            modality: "DX",
+            study_description: "Chest Radiograph PA & Lateral (High Resolution)",
+            image_url: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=800&q=80",
+            window_preset: "LUNG",
+            radiologist_impression: "Well-defined opacity in right mid-zone with air bronchograms, typical of lobar pneumonic consolidation. Cardiac silhouette and bilateral costophrenic angles remain clear.",
+            radiologist_name: "Dr. Vikram Sethi, MD (Radiology)",
+            status: "reported",
+            created_at: new Date().toISOString(),
+          }}
+          onReportSaved={() => {
+            setShowPACSModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
+
+export default PatientView;
