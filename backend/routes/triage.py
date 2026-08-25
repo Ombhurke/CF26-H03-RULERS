@@ -24,7 +24,6 @@ class TriageRequest(BaseModel):
 
 
 @router.post("/predict-triage")
-@router.post("/triage/analyze")
 async def analyze_triage(req: TriageRequest):
     """
     Evaluates patient vital signs and chief complaint using the XGBoost ESI ML classifier.

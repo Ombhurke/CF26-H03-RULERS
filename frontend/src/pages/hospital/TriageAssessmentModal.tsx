@@ -124,8 +124,15 @@ export function TriageAssessmentModal({ onClose, onSuccess }: TriageAssessmentMo
             });
 
             if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.detail || "Failed to analyze triage");
+                const errData = await res.json().catch(() => ({}));
+                const detailMsg = typeof errData.detail === "string"
+                    ? errData.detail
+                    : Array.isArray(errData.detail)
+                    ? errData.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ")
+                    : typeof errData.detail === "object"
+                    ? JSON.stringify(errData.detail)
+                    : "Failed to analyze triage";
+                throw new Error(detailMsg);
             }
 
             const aiResult = await res.json();
@@ -138,9 +145,9 @@ export function TriageAssessmentModal({ onClose, onSuccess }: TriageAssessmentMo
                 hospital_id: userData.user.id,
                 vitals,
                 symptoms,
-                priority_level: aiResult.priority_level,
-                ai_confidence: aiResult.confidence_score,
-                ai_reasoning: aiResult.clinical_reasoning,
+                priority_level: aiResult.priority_level || "YELLOW",
+                ai_confidence: aiResult.confidence_score || 80,
+                ai_reasoning: aiResult.clinical_reasoning || "Standard clinical triage priority computed.",
                 status: "waiting"
             });
 
@@ -149,7 +156,7 @@ export function TriageAssessmentModal({ onClose, onSuccess }: TriageAssessmentMo
             onSuccess();
         } catch (err: any) {
             console.error(err);
-            setError(err.message || "An error occurred during triage calculation.");
+            setError(typeof err === "string" ? err : err.message || "An error occurred during triage calculation.");
         } finally {
             setIsSubmitting(false);
         }

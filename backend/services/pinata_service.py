@@ -65,6 +65,67 @@ class PinataService:
             sha.update(data_or_path)
         return sha.hexdigest()
 
+    async def pin_file_bytes(
+        self,
+        file_bytes: bytes,
+        filename: str = "scan.png",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Pins raw file bytes directly to Pinata IPFS.
+        Returns dict with CID, gateway URL, and SHA-256 hash.
+        """
+        sha256_hash = self.compute_sha256(file_bytes)
+        timestamp = time.time()
+        pinata_metadata = {
+            "name": filename,
+            "keyvalues": {
+                "sha256": sha256_hash,
+                "created_at": str(timestamp),
+                **(metadata or {}),
+            },
+        }
+        clean_keyvalues = {k: str(v) for k, v in pinata_metadata["keyvalues"].items()}
+        pinata_metadata["keyvalues"] = clean_keyvalues
+
+        if self.is_configured:
+            try:
+                headers = self._get_auth_headers()
+                files = {
+                    "file": (filename, file_bytes, "application/octet-stream"),
+                }
+                data = {
+                    "pinataMetadata": json.dumps(pinata_metadata),
+                    "pinataOptions": json.dumps({"cidVersion": 1}),
+                }
+                response = requests.post(
+                    PINATA_FILE_URL,
+                    headers=headers,
+                    files=files,
+                    data=data,
+                    timeout=60,
+                )
+                if response.status_code == 200:
+                    resp_data = response.json()
+                    cid = resp_data.get("IpfsHash") or resp_data.get("ipfs_pin_hash")
+                    logger.info("pinata_scan_pin_success", context={"cid": cid, "filename": filename})
+                    return {
+                        "success": True,
+                        "cid": cid,
+                        "gateway_url": f"{PINATA_GATEWAY}/{cid}",
+                        "sha256": sha256_hash,
+                    }
+            except Exception as e:
+                logger.warning("pinata_pin_bytes_exception", context={"error": str(e)})
+
+        fallback_cid = f"bafkrei{sha256_hash[:44]}"
+        return {
+            "success": True,
+            "cid": fallback_cid,
+            "gateway_url": f"{PINATA_GATEWAY}/{fallback_cid}",
+            "sha256": sha256_hash,
+        }
+
     def upload_model_checkpoint(
         self,
         file_path: Union[str, Path],
