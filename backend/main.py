@@ -77,6 +77,9 @@ from routes.patient import router as patient_router
 from routes.payment import router as payment_router
 from routes.whatsapp import router as whatsapp_router
 from routes.federation import router as federation_router
+from routes.hms_core import router as hms_core_router
+from routes.hms_diagnostics_rcm import router as hms_diagnostics_rcm_router
+from routes.hms_surgical_interop import router as hms_surgical_interop_router
 
 app.include_router(health_router)
 app.include_router(triage_router)
@@ -87,6 +90,9 @@ app.include_router(payment_router)
 app.include_router(whatsapp_router)
 app.include_router(resource_router)
 app.include_router(federation_router)
+app.include_router(hms_core_router)
+app.include_router(hms_diagnostics_rcm_router)
+app.include_router(hms_surgical_interop_router)
 
 PORT = int(os.getenv("PORT", 8000))
 
