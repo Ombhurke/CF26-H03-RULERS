@@ -25,6 +25,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import type { FLModel, FLTrainingJob } from "@/lib/fl-service";
 import type { ModelRuntimeState } from "@/lib/marketplace-store";
@@ -217,6 +218,55 @@ export function TrainingPanel({
           })}
         </ol>
       </div>
+
+      {/* Cloud Decentralized Dataset & Weights Download Bar */}
+      {model.input_spec && (
+        <div className="rounded-2xl border border-border/80 bg-card/60 p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <Globe className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-foreground flex items-center gap-2">
+                Cloud IPFS Verified Resources
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold">
+                  Decentralized
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Download verified sample cohorts or base PyTorch weights directly from Pinata IPFS.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {model.input_spec.sample_dataset_url && (
+              <a
+                href={model.input_spec.sample_dataset_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/30 px-3.5 py-2 text-[11px] font-bold text-primary transition-all shadow-sm"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Sample Dataset (.zip)
+              </a>
+            )}
+            {model.input_spec.ipfs_gateway_url && (
+              <a
+                href={model.input_spec.ipfs_gateway_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-muted/80 hover:bg-muted border border-border px-3.5 py-2 text-[11px] font-bold text-foreground transition-all shadow-sm"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Base Weights (.pt)
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Local dataset selector */}
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 shadow-sm">
