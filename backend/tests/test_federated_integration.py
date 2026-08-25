@@ -65,7 +65,7 @@ def create_synthetic_ct_zip() -> bytes:
             img = Image.fromarray((np.random.rand(64, 64) * 255).astype(np.uint8))
             img_buf = io.BytesIO()
             img.save(img_buf, format="PNG")
-            zf.writestr(f"study_{i}/axial_slice.png", img_buf.getvalue())
+            zf.writestr(f"study_{i}/axial_slice_{i}.dcm", img_buf.getvalue())
     return buf.getvalue()
 
 
@@ -77,7 +77,7 @@ def create_synthetic_mri_zip() -> bytes:
             img = Image.fromarray((np.random.rand(64, 64) * 255).astype(np.uint8))
             img_buf = io.BytesIO()
             img.save(img_buf, format="PNG")
-            zf.writestr(f"cine_sax/patient_{i}_frame.png", img_buf.getvalue())
+            zf.writestr(f"cine_sax/patient_{i}_frame.dcm", img_buf.getvalue())
     return buf.getvalue()
 
 

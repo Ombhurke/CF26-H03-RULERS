@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { UploadWizard } from "@/components/features/UploadWizard";
+import { ScanDiagnosticModal } from "@/components/features/ScanDiagnosticModal";
 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
@@ -18,7 +19,7 @@ import {
   Eye,
   Trash2,
   Calendar,
-  BrainCircuit,
+  Scan,
   Loader2,
   CheckCircle2,
 } from "lucide-react";
@@ -51,6 +52,7 @@ export default function Records() {
   const [loading, setLoading] = useState(true);
 
   const [showUploadWizard, setShowUploadWizard] = useState(false);
+  const [showScanDiagnostic, setShowScanDiagnostic] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -244,14 +246,25 @@ export default function Records() {
             <p className="text-muted-foreground">Manage and view your medical records securely</p>
           </div>
 
-          <Button
-            onClick={() => setShowUploadWizard(true)}
-            size="lg"
-            className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
-          >
-            <Upload className="w-4 h-4" />
-            Upload Record
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setShowScanDiagnostic(true)}
+              size="lg"
+              className="gap-2 gradient-primary shadow-lg shadow-primary/20 hover:shadow-primary/40 font-bold"
+            >
+              <Scan className="w-4 h-4" />
+              Upload Medical Scan
+            </Button>
+            <Button
+              onClick={() => setShowUploadWizard(true)}
+              size="lg"
+              variant="outline"
+              className="gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Upload Document
+            </Button>
+          </div>
         </motion.div>
 
         {/* Stats */}
@@ -410,7 +423,7 @@ export default function Records() {
                             ) : isAnalyzed ? (
                               <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
                             ) : (
-                              <BrainCircuit className="w-4 h-4 mr-2" />
+                              <Scan className="w-4 h-4 mr-2" />
                             )}
                             {processingId === record.id
                               ? "Analyzing..."
@@ -474,6 +487,15 @@ export default function Records() {
             }}
           />
         ) : null}
+
+        {/* AI Scan Diagnostic Modal */}
+        <ScanDiagnosticModal
+          open={showScanDiagnostic}
+          onClose={() => setShowScanDiagnostic(false)}
+          onSuccess={() => {
+            fetchRecords(true);
+          }}
+        />
       </div>
     </div>
   );

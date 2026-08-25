@@ -1,11 +1,14 @@
-import React from "react";
-import { Network } from "lucide-react";
+import React, { useState } from "react";
+import { Network, Scan, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { Marketplace } from "@/components/marketplace/Marketplace";
 import { useFLStore, useFLModels } from "@/hooks/useMarketplace";
+import { ScanDiagnosticModal } from "@/components/features/ScanDiagnosticModal";
 
 export function FederatedImaging() {
   const { models, isLoading } = useFLModels();
   const store = useFLStore();
+  const [showScanDiagnostic, setShowScanDiagnostic] = useState(false);
 
   // Dynamic values calculated from real data
   const modelsCount = models?.length || 0;
@@ -79,6 +82,20 @@ export function FederatedImaging() {
                 </span>
               </li>
             </ul>
+
+            {/* Quick Diagnostic Action Button for Hospital Clinicians */}
+            <div className="pt-2">
+              <Button
+                onClick={() => setShowScanDiagnostic(true)}
+                className="rounded-2xl gradient-primary text-xs font-bold gap-2 shadow-md shadow-primary/20 hover:scale-[1.02] transition-transform"
+              >
+                <Scan className="w-4 h-4" />
+                <span>Run Clinical Scan Diagnostics</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono">
+                  Live IPFS Models
+                </span>
+              </Button>
+            </div>
           </div>
 
           {/* Right: 4 Metric Pills in 2x2 Grid (Calibrated Compact Size) */}
@@ -121,6 +138,13 @@ export function FederatedImaging() {
 
       {/* Main Marketplace */}
       <Marketplace />
+
+      {/* Hospital AI Scan Diagnostic Modal */}
+      <ScanDiagnosticModal
+        open={showScanDiagnostic}
+        onClose={() => setShowScanDiagnostic(false)}
+        isHospitalContext={true}
+      />
     </div>
   );
 }

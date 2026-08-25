@@ -19,10 +19,12 @@ import {
   ShieldCheck,
   PhoneCall,
   HeartPulse,
+  Scan,
 } from "lucide-react";
 import { ConsentRequestsList } from "@/components/features/ConsentRequestsList";
 import { RiskAnalysisCard } from "@/components/features/RiskAnalysisCard";
 import { PharmacyRefillAlerts } from "@/components/features/PharmacyRefillAlerts";
+import { ScanDiagnosticModal } from "@/components/features/ScanDiagnosticModal";
 
 const container = {
   hidden: { opacity: 0 },
@@ -57,6 +59,7 @@ export default function Dashboard() {
 
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showPinDialog, setShowPinDialog] = useState(false);
+  const [showScanDiagnostic, setShowScanDiagnostic] = useState(false);
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCalling, setIsCalling] = useState(false);
@@ -88,54 +91,48 @@ export default function Dashboard() {
   };
 
   const fetchStats = async () => {
-    if (!user) return;
     try {
-      // Use same patient id as Records page (patients.id, not user.id)
-      const { data: patient, error: patientErr } = await supabase
+      const { data: patientRow } = await supabase
         .from("patients")
         .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
+        .eq("user_id", user?.id)
         .maybeSingle();
-      if (patientErr || !patient?.id) {
-        setStats({ records: 0, consents: 0 });
-        return;
-      }
-      const patientId = patient.id;
 
-      const { count: recordsCount, error: recordsError } = await supabase
-        .from("records")
-        .select("id", { count: "exact", head: true })
-        .eq("patient_id", patientId);
+      const patientId = patientRow?.id || user?.id;
 
-      // Removed recordsError check here to handle no-rows gracefully if needed
+      const [recordsRes, consentsRes] = await Promise.all([
+        supabase
+          .from("records")
+          .select("id", { count: "exact" })
+          .eq("patient_id", patientId),
+        supabase
+          .from("access_logs")
+          .select("id", { count: "exact" })
+          .eq("patient_id", patientId)
+          .eq("status", "pending"),
+      ]);
 
-      const { count: consentsCount, error: consentsError } = await supabase
-        .from("consent_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("patient_id", patientId)
-        .eq("status", "pending");
-      if (consentsError) throw consentsError;
-
-      setStats({ records: recordsCount ?? 0, consents: consentsCount ?? 0 });
-    } catch (e) {
-      console.error(e);
+      setStats({
+        records: recordsRes.count || 0,
+        consents: consentsRes.count || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
     }
   };
 
   const handleCallMe = async () => {
     if (!user) return;
-    const phoneNumber = window.prompt("Enter your phone number to receive the call (e.g., +919876543210):", "+91");
-    if (!phoneNumber) return;
-
     setIsCalling(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/initiate-call`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ patient_id: user.id, phone_number: phoneNumber }),
+      const response = await fetch(`${API_BASE_URL}/call-patient`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: user.id,
+          phone_number: patientData?.phone || "+918806275531",
+          patient_name: patientData?.full_name || "Patient",
+        }),
       });
       const data = await response.json();
       if (data.success) {
@@ -153,17 +150,17 @@ export default function Dashboard() {
 
   const quickActions = [
     {
+      title: "Upload Medical Scan",
+      description: "Get instant AI findings for X-Ray, MRI, or CT",
+      icon: Scan,
+      color: "from-blue-600 to-indigo-600",
+      onClick: () => setShowScanDiagnostic(true),
+    },
+    {
       title: t("patient.my_records"),
       description: "View and manage all medical records",
       icon: FileText,
       color: "from-blue-500 to-cyan-500",
-      onClick: () => navigate("/patient/records"),
-    },
-    {
-      title: t("patient.upload_record"),
-      description: "Add new medical documents",
-      icon: Upload,
-      color: "from-green-500 to-emerald-500",
       onClick: () => navigate("/patient/records"),
     },
     {
@@ -404,6 +401,15 @@ export default function Dashboard() {
         onClose={() => setShowPinDialog(false)}
         onSuccess={fetchPatientProfile}
         userId={user?.id || ""}
+      />
+
+      <ScanDiagnosticModal
+        open={showScanDiagnostic}
+        onClose={() => setShowScanDiagnostic(false)}
+        onSuccess={() => {
+          fetchPatientProfile();
+          fetchStats();
+        }}
       />
     </div>
   );
