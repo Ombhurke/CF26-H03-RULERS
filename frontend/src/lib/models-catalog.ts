@@ -68,55 +68,6 @@ export interface ModelDefinition {
 
 export const MODELS: ModelDefinition[] = [
   {
-    id: "cxr-pneumo-cnn",
-    name: "CheXNet Frontal Radiograph Classifier",
-    shortName: "CheXNet",
-    modality: "Chest X-ray",
-    task: "14-Pathology Multi-label Classification · Chest Radiographs",
-    summary: "DenseNet-121 classifier detecting 14 chest pathologies from frontal X-rays.",
-    description:
-      "Trained on over 100,000 frontal chest radiographs using DenseNet-121 architecture. Hospitals train locally with DP-SGD and share approved checkpoint updates via Pinata IPFS.",
-    architecture: "DenseNet-121 (Pretrained m-25012018-123527)",
-    parameters: "7.0M",
-    classes: [
-      "Atelectasis", "Cardiomegaly", "Effusion", "Infiltration", "Mass", "Nodule",
-      "Pneumonia", "Pneumothorax", "Consolidation", "Edema", "Emphysema", "Fibrosis",
-      "Pleural_Thickening", "Hernia"
-    ],
-    input: { resolution: "224 × 224", channels: "3 (RGB / Grayscale)", format: "DICOM or PNG (.zip)" },
-    dataRequirements: [
-      { label: "Modality", value: "Frontal (AP/PA) chest radiographs" },
-      { label: "Labels", value: "Multi-label pathology findings" },
-      { label: "Min. labeled studies", value: "10 per site" },
-      { label: "Base Checkpoint", value: "m-25012018-123527.pth.tar" },
-      { label: "Provenance", value: "Pinata / IPFS Immutable CID" },
-    ],
-    preprocessing: [
-      "Window/level normalize to 8-bit grayscale",
-      "Resize to 224×224 bilinear",
-      "Histogram standardization (ImageNet mean/std)",
-      "Zero-raw-data privacy invariant applied",
-    ],
-    trainingSteps: [
-      { title: "Stage dataset ZIP", detail: "Upload local .zip archive containing chest X-ray images in class folders or labeled cohorts." },
-      { title: "Pre-flight validation", detail: "Local daemon strictly validates image formats (.png, .jpg, .dcm) and rejects non-image tabular data." },
-      { title: "Load CheXNet base model", detail: "Loads immutable pretrained DenseNet-121 weights (m-25012018-123527.pth.tar)." },
-      { title: "Local DP-SGD training", detail: "Runs privacy-preserving fine-tuning with gradient clipping (max norm 1.0) and AdamW." },
-      { title: "Pinata IPFS model upload", detail: "Candidate model checkpoint is uploaded to IPFS via Pinata with cryptographic SHA-256 hash." },
-    ],
-    baseAccuracy: 0.8508,
-    targetAccuracy: 0.965,
-    epsilonMax: 5.0,
-    status: "training",
-    minSamples: 10,
-    accent: "indigo",
-    hospitals: [
-      { id: "h1", name: "St. Jude Children's", code: "GE", region: "Memphis, US", scanner: "GE Discovery", samples: 1200 },
-      { id: "h2", name: "Great Ormond Street", code: "SIE", region: "London, UK", scanner: "Siemens Ysio", samples: 850 },
-      { id: "h3", name: "Bambino Gesù", code: "PHI", region: "Rome, IT", scanner: "Philips DigitalDiagnost", samples: 640 },
-    ],
-  },
-  {
     id: "ct-clip-3d",
     name: "CT-CLIP 3D Chest CT Scanner",
     shortName: "CT-CLIP",
