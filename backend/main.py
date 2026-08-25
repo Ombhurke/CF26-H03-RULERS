@@ -1,3 +1,4 @@
+from datetime import timezone
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -154,6 +155,12 @@ from ai_config import get_ai_client, safe_generate_content, MODEL_TEXT_FAST, MOD
 # Initialize Gemini Client
 client = get_ai_client()
 chat_sessions = {}
+
+try:
+    voice_service = VoiceService()
+except Exception as e:
+    print(f"⚠️ VoiceService initialization failed: {e}")
+    voice_service = None
 
 try:
     rag_service = RAGService()
@@ -1543,7 +1550,7 @@ async def pharmacy_chat(request: PharmacyChatRequest):
 
         # Voice synthesis — identical to the original implementation
         audio_data_b64 = None
-        if request.use_voice and ai_text:
+        if request.use_voice and ai_text and voice_service:
             try:
                 audio_bytes = await voice_service.synthesize_empathic(ai_text, request.language)
                 if audio_bytes:
@@ -2047,6 +2054,9 @@ Language Guidelines:
 """
 
         
+        ai_text = None
+        last_error_msg = None
+        
         # Using gemini-2.5-flash as standardized
         try:
             print("🤖 Health Assistant (Using safe_generate_content - MODEL_TEXT_FAST)")
@@ -2058,15 +2068,14 @@ Language Guidelines:
                     max_output_tokens=2048,
                 )
             )
+            # Process response
+            if hasattr(response, 'text') and response.text:
+                ai_text = response.text
+            elif hasattr(response, 'candidates') and len(response.candidates) > 0 and response.candidates[0].content and response.candidates[0].content.parts:
+                ai_text = response.candidates[0].content.parts[0].text
         except Exception as e:
             print(f"❌ Gemini Error: {e}")
-            raise e
-        
-        # Process response
-        if hasattr(response, 'text') and response.text:
-            ai_text = response.text
-        elif hasattr(response, 'candidates') and len(response.candidates) > 0:
-            ai_text = response.candidates[0].content.parts[0].text
+            last_error_msg = str(e)
         
         if ai_text:
             print(f"✅ Got response: {len(ai_text)} characters")
@@ -2075,7 +2084,7 @@ Language Guidelines:
         if not ai_text:
             print("📝 Using fallback response")
             # Include the error for debugging
-            debug_info = f" (Error: {last_error_msg})" if 'last_error_msg' in locals() else ""
+            debug_info = f" (Error: {last_error_msg})" if last_error_msg else ""
             
             error_fallbacks = {
                 "hi": f"क्षमा करें, मैं अभी उस अनुरोध को संसाधित नहीं कर सका।{debug_info} कृपया कुछ ही पलों में पुन: प्रयास करें। 💙",
@@ -2091,7 +2100,7 @@ Language Guidelines:
         
         # Generate voice if requested
         audio_data_b64 = None
-        if request.use_voice:
+        if request.use_voice and voice_service:
             try:
                 audio_bytes = await voice_service.synthesize_empathic(
                     text=ai_text,
@@ -2152,6 +2161,9 @@ async def synthesize_voice(request: dict):
         if not text:
             raise HTTPException(status_code=400, detail="Text is required")
         
+        if not voice_service:
+            raise HTTPException(status_code=503, detail="Voice service is not configured (missing ELEVENLABS_API_KEY)")
+
         audio_data = await voice_service.synthesize_empathic(text, language)
         
         if not audio_data:
@@ -2711,7 +2723,7 @@ async def agent_chat(request: AgentChatRequest):
 
         # Optional voice synthesis on the final response
         audio_data_b64 = None
-        if request.use_voice and result.get("response"):
+        if request.use_voice and result.get("response") and voice_service:
             try:
                 audio_bytes = await voice_service.synthesize_empathic(result["response"], request.language)
                 if audio_bytes:
@@ -2765,7 +2777,7 @@ async def pharmacist_ai_query(req: PharmacistAIRequest):
 
         # Audio Generation (If requested)
         audio_data = None
-        if req.use_voice and ai_text:
+        if req.use_voice and ai_text and voice_service:
             # Clean markdown for TTS
             clean_tts = ai_text.replace('*', '').replace('#', '').strip()
             audio_bytes = await voice_service.synthesize_empathic(clean_tts, req.language)

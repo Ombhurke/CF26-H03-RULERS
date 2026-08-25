@@ -1,3 +1,4 @@
+import os
 from elevenlabs import ElevenLabs, VoiceSettings
 import re
 from typing import Optional
@@ -7,8 +8,9 @@ class VoiceService:
     Service for handling ElevenLabs voice synthesis with empathic delivery
     """
     
-    def __init__(self, api_key: str):
-        self.client = ElevenLabs(api_key=api_key)
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("ELEVENLABS_API_KEY")
+        self.client = ElevenLabs(api_key=self.api_key) if self.api_key else None
         
         # Voice IDs for different languages and emotions
         self.voices = {
@@ -65,6 +67,10 @@ class VoiceService:
             Audio data as bytes (MP3 format)
         """
         try:
+            if not self.client:
+                print("⚠️ VoiceService: ElevenLabs client not initialized (ELEVENLABS_API_KEY missing)")
+                return None
+
             # Clean text for speech
             clean_text = self._clean_text_for_speech(text)
             
@@ -112,6 +118,11 @@ class VoiceService:
         Stream audio in chunks for lower latency (generator function)
         """
         try:
+            if not self.client:
+                print("⚠️ VoiceService: ElevenLabs client not initialized (ELEVENLABS_API_KEY missing)")
+                yield b""
+                return
+
             clean_text = self._clean_text_for_speech(text)
             voice_id = self.voices.get(language, self.voices["en"])
             
