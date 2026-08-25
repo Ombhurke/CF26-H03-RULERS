@@ -28,6 +28,10 @@ supabase/.temp/
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
 
 # Secrets
 .env
@@ -60,4 +64,40 @@ models_*.txt
 ts_error.txt
 build-out*.txt
 
-env
+# ── Machine Learning Models, Checkpoints & Weights (DO NOT COMMIT) ──
+*.pt
+*.pth
+*.pth.tar
+*.ckpt
+*.bin
+*.safetensors
+*.onnx
+*.h5
+*.hdf5
+*.tflite
+*.joblib
+*.pkl
+
+# ML Checkpoints directories
+**/models/*.pt
+**/models/*.pth*
+**/models/*.tar*
+**/checkpoints/*.pt
+**/checkpoints/*.pth*
+**/checkpoints/*.tar*
+**/models/trained/
+**/checkpoints/trained/
+backend/ml/chexnet/models/
+backend/ml/CT-CLIP/models/
+backend/ml/CMR-AI/checkpoints/
+backend/ml/CMR-AI/models/
+
+# Medical imaging raw volume formats & caches
+*.nii
+*.nii.gz
+*.dcm
+*.dicom
+*.npz
+*.npy
+*.mhd
+*.raw
