@@ -241,8 +241,8 @@ python -m pytest backend/tests/ -v
 |---|---|
 | **Om Bhurke** | *Full-Stack Architecture, System Integration & Emergency Command Engine* |
 | **Kaushik Khodke** | *Federated Learning Core, Byzantine Sentinel Defense, DP-SGD & IPFS* |
-| **[Team Member 3]** | *Computer Vision Model Training, MMD Domain Drift & Evaluation* |
-| **[Team Member 4]** | *Frontend UI/UX, WebSocket Realtime Streaming & Visual Analytics* |
+| **Jaykrishna Khond** | *Computer Vision Model Training, MMD Domain Drift & Evaluation* |
+| **Pratik Wath** | *Frontend UI/UX, WebSocket Realtime Streaming & Visual Analytics* |
 
 ---
 
