@@ -4,17 +4,11 @@ import { supabase } from "@/lib/supabase";
 import { API_BASE_URL } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Loader2, Plus, AlertCircle, Clock, Activity, ScanLine, Users, AlertTriangle, Timer, CheckCircle, X, Bell, TrendingUp, BedDouble } from "lucide-react";
+import { Loader2, Plus, AlertCircle, Clock, Activity, ScanLine, Users, AlertTriangle, Timer, CheckCircle, X, TrendingUp, BedDouble } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TriageAssessmentModal } from "@/pages/hospital/TriageAssessmentModal";
 import { ResourceLoadBalancer } from "@/pages/hospital/ResourceLoadBalancer";
 import { FederatedImaging } from "@/components/hospital/fl/FederatedImaging";
-
-import { OPDQueueManagement } from "@/components/hospital/OPDQueueManagement";
-import { LISManagement } from "@/components/hospital/LISManagement";
-import { RCMBillingManagement } from "@/components/hospital/RCMBillingManagement";
-import { SurgicalOTBloodBank } from "@/components/hospital/SurgicalOTBloodBank";
-import { InteroperabilityAudit } from "@/components/hospital/InteroperabilityAudit";
 
 export type PriorityLevel = "RED" | "ORANGE" | "YELLOW" | "GREEN" | "BLUE";
 
@@ -58,19 +52,12 @@ const PRIORITY_COLORS: Record<PriorityLevel, string> = {
     BLUE: "bg-blue-500/10 text-blue-500 border-blue-500/20",
 };
 
-// Triage Alert types are now managed in AlertProvider.tsx
-
-export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab?: 'queue' | 'opd' | 'resources' | 'lis' | 'ot' | 'rcm' | 'interop' | 'federation' }) {
+export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab?: 'queue' | 'resources' | 'federation' }) {
     const navigate = useNavigate();
     const [queue, setQueue] = useState<TriagePatient[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState<'queue' | 'opd' | 'resources' | 'lis' | 'ot' | 'rcm' | 'interop' | 'federation'>(defaultTab);
-    
-    useEffect(() => {
-        setActiveTab(defaultTab);
-    }, [defaultTab]);
     
     // Assign Bed Bridge State
     const [availableBeds, setAvailableBeds] = useState<any[]>([]);
@@ -106,15 +93,15 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                     status: "occupied",
                     patient_id: patientToAssignBed.patient_id,
                     triage_id: patientToAssignBed.id,
-                    priority_assigned: patientToAssignBed.priority_level
+                    priority_assigned: patientToAssignBed.priority_level || patientToAssignBed.category || "YELLOW"
                 })
             });
             await markAttended(patientToAssignBed.id);
             setIsBedModalOpen(false);
             setPatientToAssignBed(null);
             setSelectedBedId("");
-        } catch (e) {
-            console.error(e);
+        } catch (err) {
+            console.error("Failed to assign bed:", err);
         }
     };
 
@@ -134,8 +121,8 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
 
             // Sort in JS to ensure Priority overrides Arrival Time
             const sorted = (data || []).sort((a, b) => {
-                const pA = PRIORITY_ORDER[a.priority_level as PriorityLevel] || 6;
-                const pB = PRIORITY_ORDER[b.priority_level as PriorityLevel] || 6;
+                const pA = PRIORITY_ORDER[(a.priority_level || a.category) as PriorityLevel] || 6;
+                const pB = PRIORITY_ORDER[(b.priority_level || b.category) as PriorityLevel] || 6;
                 if (pA !== pB) return pA - pB;
                 return new Date(a.arrival_time).getTime() - new Date(b.arrival_time).getTime();
             });
@@ -157,11 +144,7 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
             .on(
                 "postgres_changes",
                 { event: "INSERT", schema: "public", table: "triage_queue" },
-                (payload) => {
-                    // Global alerts are now handled by AlertProvider. 
-                    // We just need to refresh the queue here.
-                    fetchQueue();
-                }
+                () => { fetchQueue(); }
             )
             .on(
                 "postgres_changes",
@@ -211,109 +194,51 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
         }
     };
 
+    if (defaultTab === 'resources') {
+        return (
+            <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+                <ResourceLoadBalancer />
+            </div>
+        );
+    }
+
+    if (defaultTab === 'federation') {
+        return (
+            <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+                <FederatedImaging />
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-            {/* Enterprise HMS Navigation Tabs */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
-                <button
-                    onClick={() => setActiveTab("queue")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "queue"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
+            {/* Header with Main Add Patient Action Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">
+                            Emergency Triage Queue
+                        </h1>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Active Live Feed
+                        </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Real-time AI-prioritized patient intake & clinical urgency stream
+                    </p>
+                </div>
+
+                <Button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-primary/25 flex items-center gap-2 self-start sm:self-auto"
                 >
-                    🚨 Emergency Triage
-                </button>
-                <button
-                    onClick={() => setActiveTab("opd")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "opd"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    🗓️ OPD Clinic &amp; Tokens
-                </button>
-                <button
-                    onClick={() => setActiveTab("resources")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "resources"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    🛏️ Bed Balancer &amp; ADT
-                </button>
-                <button
-                    onClick={() => setActiveTab("lis")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "lis"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    🧪 Laboratory (LIS) &amp; Delta
-                </button>
-                <button
-                    onClick={() => setActiveTab("ot")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "ot"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    ✂️ Surgical OT &amp; Blood Bank
-                </button>
-                <button
-                    onClick={() => setActiveTab("rcm")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "rcm"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    💳 Financial Billing (RCM)
-                </button>
-                <button
-                    onClick={() => setActiveTab("interop")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "interop"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    🌐 FHIR &amp; ABDM
-                </button>
-                <button
-                    onClick={() => setActiveTab("federation")}
-                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                        activeTab === "federation"
-                            ? "bg-primary text-white shadow-md shadow-primary/25"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/60"
-                    }`}
-                >
-                    🧠 Collaborative AI Models
-                </button>
+                    <Plus className="w-5 h-5" />
+                    Add Patient to Triage
+                </Button>
             </div>
 
-            {activeTab === 'federation' ? (
-                <FederatedImaging />
-            ) : activeTab === 'resources' ? (
-                <ResourceLoadBalancer />
-            ) : activeTab === 'opd' ? (
-                <OPDQueueManagement />
-            ) : activeTab === 'lis' ? (
-                <LISManagement />
-            ) : activeTab === 'ot' ? (
-                <SurgicalOTBloodBank />
-            ) : activeTab === 'rcm' ? (
-                <RCMBillingManagement />
-            ) : activeTab === 'interop' ? (
-                <InteroperabilityAudit />
-            ) : (
-                <>
-                    {/* Quick Stats Row */}
+            {/* Quick Stats Row */}
             {!isLoading && !error && (
                 <div className="flex flex-col md:flex-row gap-6">
                     <Card className="flex-1 glass-card border-l-4 border-l-primary/50 relative overflow-hidden group">
@@ -358,65 +283,55 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
 
                     <Card className="flex-1 glass-card border-l-4 border-l-indigo-500/50 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-2 opacity-5">
-                            <TrendingUp className="w-16 h-16" />
+                            <Activity className="w-16 h-16" />
                         </div>
                         <CardContent className="p-6 flex items-center gap-4 relative z-10">
                             <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center shrink-0 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
                                 <TrendingUp className="w-7 h-7 text-indigo-500" />
                             </div>
                             <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/70">System Load Index</p>
-                                <h3 className="text-3xl font-bold tracking-tighter">{getLoadIndex()}</h3>
+                                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground/70">Average Wait Time</p>
+                                <div className="flex items-baseline gap-2">
+                                    <h3 className="text-3xl font-bold tracking-tighter">
+                                        {queue.length > 0 ? formatWaitTime(queue[0].arrival_time) : "0m"}
+                                    </h3>
+                                    <span className="text-[10px] font-bold text-indigo-500 px-1.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                                        Estimated
+                                    </span>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             )}
 
-            {error ? (
-                <Card className="border-destructive/50 bg-destructive/10">
-                    <CardContent className="p-6 text-destructive flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5" />
-                        <p>{error}</p>
-                    </CardContent>
-                </Card>
-            ) : isLoading ? (
-                <div className="grid gap-4">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-44 rounded-2xl bg-muted/20 border border-border/50 overflow-hidden relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer" />
-                            <div className="p-6 flex gap-6">
-                                <div className="space-y-3 flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
-                                        <div className="space-y-2">
-                                            <div className="w-48 h-6 bg-muted rounded animate-pulse" />
-                                            <div className="w-32 h-3 bg-muted rounded animate-pulse" />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {[1, 2, 3, 4].map(j => <div key={j} className="h-10 bg-muted rounded-lg animate-pulse" />)}
-                                    </div>
-                                </div>
-                                <div className="flex-1 bg-muted/40 rounded-xl" />
-                                <div className="w-36 space-y-2">
-                                    <div className="h-10 bg-muted rounded-xl animate-pulse" />
-                                    <div className="h-10 bg-muted rounded-xl animate-pulse" />
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+            {/* Error Message */}
+            {error && (
+                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <p className="text-sm font-medium">{error}</p>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-muted-foreground animate-pulse">Syncing dynamic emergency queue...</p>
                 </div>
             ) : queue.length === 0 ? (
-                <Card className="glass-card border-primary/10">
-                    <CardContent className="p-12 text-center">
-                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                            <ScanLine className="w-8 h-8 text-primary" />
+                <Card className="glass-card border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="w-16 h-16 rounded-full bg-muted/40 flex items-center justify-center mb-4">
+                            <Clock className="w-8 h-8 text-muted-foreground" />
                         </div>
-                        <h3 className="text-xl font-semibold mb-2">Queue is Empty</h3>
-                        <p className="text-muted-foreground max-w-sm mx-auto">
-                            There are currently no patients waiting in the triage queue.
+                        <h3 className="text-lg font-bold text-foreground mb-1">Queue is Currently Empty</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                            No emergency patients are currently waiting for treatment. Click below to add a new triage assessment.
                         </p>
+                        <Button onClick={() => setIsModalOpen(true)} className="bg-primary hover:bg-primary/90 text-white font-bold gap-2">
+                            <Plus className="w-4 h-4" /> Add Patient to Triage
+                        </Button>
                     </CardContent>
                 </Card>
             ) : (
@@ -518,27 +433,26 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                                                             variant="outline"
                                                             onClick={() => {
                                                                 const targetId = patient.patient_id || patient.id;
-                                                                navigate(`/patient/analysis/${targetId}`);
+                                                                navigate(`/doctor/patient/${targetId}?name=${encodeURIComponent(patient.patient_name)}`);
                                                             }}
-                                                            className="w-full border-blue-500/40 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-all font-bold text-xs gap-2 h-10 rounded-xl"
+                                                            className="flex-1 border-primary/30 hover:bg-primary/5 hover:text-primary gap-2 font-bold text-xs"
                                                         >
-                                                            <TrendingUp className="w-4 h-4" />
-                                                            Analysis
+                                                            <ScanLine className="w-3.5 h-3.5" /> Full EHR
                                                         </Button>
-                                                        <Button
-                                                            onClick={() => markAttended(patient.id)}
-                                                            className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/20 transition-all font-bold text-xs gap-2 h-10 rounded-xl"
-                                                        >
-                                                            <CheckCircle className="w-4 h-4" />
-                                                            Attended
-                                                        </Button>
+
                                                         <Button
                                                             variant="outline"
                                                             onClick={() => openBedModal(patient)}
-                                                            className="w-full border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 transition-all font-bold text-xs gap-2 h-10 rounded-xl"
+                                                            className="flex-1 border-indigo-500/30 hover:bg-indigo-500/5 hover:text-indigo-500 gap-2 font-bold text-xs"
                                                         >
-                                                            <BedDouble className="w-4 h-4" />
-                                                            Assign Bed
+                                                            <BedDouble className="w-3.5 h-3.5" /> Assign Bed
+                                                        </Button>
+
+                                                        <Button
+                                                            onClick={() => markAttended(patient.id)}
+                                                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold text-xs shadow-md shadow-emerald-600/20"
+                                                        >
+                                                            <CheckCircle className="w-3.5 h-3.5" /> Attend
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -552,39 +466,72 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                 </div>
             )}
 
+            {/* Bed Assignment Modal */}
+            <AnimatePresence>
+                {isBedModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+                        >
+                            <div className="p-6 border-b border-border/50 flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-lg text-foreground">Assign Bed Facility</h3>
+                                    <p className="text-xs text-muted-foreground">Assigning patient: {patientToAssignBed?.patient_name}</p>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setIsBedModalOpen(false)} className="rounded-full w-8 h-8 p-0">
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                {availableBeds.length === 0 ? (
+                                    <div className="text-center py-6 text-muted-foreground text-sm">
+                                        <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-orange-500 opacity-60" />
+                                        No available beds found. Please synchronize beds or free up an occupied bed.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Select Target Bed</label>
+                                        <select
+                                            value={selectedBedId}
+                                            onChange={(e) => setSelectedBedId(e.target.value)}
+                                            className="w-full p-3 rounded-xl bg-background border border-border text-foreground font-semibold text-sm"
+                                        >
+                                            <option value="">-- Choose Available Bed --</option>
+                                            {availableBeds.map(b => (
+                                                <option key={b.id} value={b.id}>
+                                                    [{b.ward_type}] Bed {b.bed_number}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-4 bg-muted/20 border-t border-border/50 flex justify-end gap-2">
+                                <Button variant="ghost" onClick={() => setIsBedModalOpen(false)}>Cancel</Button>
+                                <Button
+                                    disabled={!selectedBedId}
+                                    onClick={confirmAssignBed}
+                                    className="bg-primary hover:bg-primary/90 text-white font-bold"
+                                >
+                                    Confirm Assignment
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Assessment Modal with Live Re-fetch */}
             {isModalOpen && (
                 <TriageAssessmentModal
                     onClose={() => setIsModalOpen(false)}
-                    onSuccess={() => {
-                        setIsModalOpen(false);
-                        fetchQueue();
-                    }}
+                    onSuccess={fetchQueue}
                 />
-            )}
-            
-            {/* Modal for Bed Assignment via Bridge */}
-            {isBedModalOpen && parseInt(patientToAssignBed?.id ? "1" : "0") > 0 && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <Card className="w-full max-w-sm glass-card">
-                        <CardContent className="p-6">
-                            <h3 className="font-bold text-lg mb-4">Assign Bed & Mark Attended</h3>
-                            <p className="text-sm mb-4 text-muted-foreground">Patient: {patientToAssignBed?.patient_name}</p>
-                            <select className="w-full p-2 rounded-md mb-4 bg-background border border-border" 
-                                value={selectedBedId} onChange={e => setSelectedBedId(e.target.value)}>
-                                <option value="">Select Bed...</option>
-                                {availableBeds.map(b => (
-                                    <option key={b.id} value={b.id}>{b.ward_type} - {b.bed_number}</option>
-                                ))}
-                            </select>
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => {setIsBedModalOpen(false); setSelectedBedId("");}}>Cancel</Button>
-                                <Button onClick={confirmAssignBed} disabled={!selectedBedId} className="bg-primary hover:bg-primary/90 text-white">Assign Bed</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-            </>
             )}
         </div>
     );

@@ -200,10 +200,26 @@ async def _execute_and_stream_job(
                 }).execute()
 
                 if result.get("gate_decision") == "ACCEPTED":
-                    supabase.table("fl_models").update({
+                    # Fetch existing model record to increment round and update input_spec
+                    m_row = supabase.table("fl_models").select("current_round, input_spec").eq("id", model_id).execute()
+                    c_round = 1
+                    inp_spec = {}
+                    if m_row.data:
+                        c_round = (m_row.data[0].get("current_round") or 0) + 1
+                        inp_spec = m_row.data[0].get("input_spec") or {}
+
+                    if pinata_cid:
+                        inp_spec["ipfs_cid"] = pinata_cid
+                        inp_spec["ipfs_gateway_url"] = gateway_url
+
+                    update_payload = {
                         "current_accuracy": result["candidate_accuracy"],
                         "current_loss": result["candidate_loss"],
-                    }).eq("id", model_id).execute()
+                        "current_round": c_round,
+                        "input_spec": inp_spec,
+                    }
+                    supabase.table("fl_models").update(update_payload).eq("id", model_id).execute()
+                    logger.info("fl_model_updated_to_next_round", context={"model_id": model_id, "round": c_round, "accuracy": result["candidate_accuracy"], "cid": pinata_cid})
             except Exception as db_err:
                 logger.warning("supabase_fl_job_persist_warning", context={"error": str(db_err)})
 

@@ -14,9 +14,16 @@ export interface FLModel {
   parameters_count: string;
   classes: string[];
   input_spec: {
-    resolution: string;
-    channels: string;
-    format: string;
+    resolution?: string;
+    channels?: string;
+    format?: string;
+    ipfs_cid?: string;
+    ipfs_gateway_url?: string;
+    sample_dataset_cid?: string;
+    sample_dataset_url?: string;
+    sample_dataset_filename?: string;
+    model_checkpoint_filename?: string;
+    [key: string]: any;
   };
   data_requirements: Array<{ label: string; value: string }>;
   preprocessing_steps: string[];

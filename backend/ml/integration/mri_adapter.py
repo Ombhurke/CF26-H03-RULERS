@@ -275,6 +275,10 @@ class MRIAdapter:
             "hospital_id": hospital_id,
         }, ckpt_path)
 
+        if gate_decision == "ACCEPTED":
+            self.base_checkpoint_path = ckpt_path
+            emit_log(f"🔄 Base model weights updated to latest accepted checkpoint for next incremental training round.")
+
         sha256_hash = hashlib.sha256(ckpt_path.read_bytes()).hexdigest()
         emit_log(f"CMR-AI model update saved: {ckpt_filename} | SHA-256: {sha256_hash[:16]}...")
 
