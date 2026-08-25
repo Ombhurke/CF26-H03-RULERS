@@ -1,8 +1,9 @@
 """
 Pinata IPFS Decentralized Model Storage Service
 ================================================
-Handles uploading trained federated model checkpoints and provenance metadata
-to IPFS via Pinata REST API, computing SHA-256 hashes for cryptographic verification.
+Handles uploading trained federated model checkpoints, full base foundation models,
+and provenance metadata to IPFS via Pinata REST API, computing SHA-256 hashes
+for cryptographic verification and decentralized bootstrapping.
 """
 
 import os
@@ -12,9 +13,15 @@ import json
 import hashlib
 import requests
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, Callable
 from core.logger import logger
 from core.config import settings
+
+try:
+    from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
+    HAS_TOOLBELT = True
+except ImportError:
+    HAS_TOOLBELT = False
 
 PINATA_FILE_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
 PINATA_JSON_URL = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
@@ -131,9 +138,10 @@ class PinataService:
         file_path: Union[str, Path],
         model_name: str,
         metadata: Optional[Dict[str, Any]] = None,
+        progress_callback: Optional[Callable[[int, int], Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Uploads a trained model checkpoint artifact to Pinata IPFS.
+        Uploads a model checkpoint artifact to Pinata IPFS using chunked streaming.
         Returns dict with CID, gateway URL, SHA-256, and metadata.
         """
         file_path = Path(file_path)
@@ -162,21 +170,46 @@ class PinataService:
         if self.is_configured:
             try:
                 headers = self._get_auth_headers()
-                with open(file_path, "rb") as fp:
-                    files = {
-                        "file": (file_path.name, fp, "application/octet-stream"),
-                    }
-                    data = {
-                        "pinataMetadata": json.dumps(pinata_metadata),
-                        "pinataOptions": json.dumps({"cidVersion": 1}),
-                    }
-                    response = requests.post(
-                        PINATA_FILE_URL,
-                        headers=headers,
-                        files=files,
-                        data=data,
-                        timeout=120,
-                    )
+                if HAS_TOOLBELT:
+                    with open(file_path, "rb") as fp:
+                        encoder = MultipartEncoder(
+                            fields={
+                                "pinataMetadata": json.dumps(pinata_metadata),
+                                "pinataOptions": json.dumps({"cidVersion": 1}),
+                                "file": (file_path.name, fp, "application/octet-stream"),
+                            }
+                        )
+                        def monitor_cb(monitor):
+                            if progress_callback:
+                                try:
+                                    progress_callback(monitor.bytes_read, monitor.len)
+                                except Exception:
+                                    pass
+
+                        monitor = MultipartEncoderMonitor(encoder, monitor_cb)
+                        req_headers = {**headers, "Content-Type": monitor.content_type}
+                        response = requests.post(
+                            PINATA_FILE_URL,
+                            data=monitor,
+                            headers=req_headers,
+                            timeout=(60, 900),
+                        )
+                else:
+                    with open(file_path, "rb") as fp:
+                        files = {
+                            "file": (file_path.name, fp, "application/octet-stream"),
+                        }
+                        data = {
+                            "pinataMetadata": json.dumps(pinata_metadata),
+                            "pinataOptions": json.dumps({"cidVersion": 1}),
+                        }
+                        response = requests.post(
+                            PINATA_FILE_URL,
+                            headers=headers,
+                            files=files,
+                            data=data,
+                            timeout=300,
+                        )
 
                 if response.status_code == 200:
                     resp_data = response.json()
@@ -219,6 +252,27 @@ class PinataService:
             "is_simulated": True,
             "metadata": pinata_metadata,
         }
+
+    def upload_large_base_model(
+        self,
+        file_path: Union[str, Path],
+        model_name: str,
+        modality: str,
+        progress_callback: Optional[Callable[[int, int], Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Specialized uploader for full base foundation models (80MB - 364MB).
+        Uses chunked streaming and extended read timeouts.
+        """
+        return self.upload_model_checkpoint(
+            file_path=file_path,
+            model_name=f"Base_Foundation_{model_name}",
+            metadata={
+                "type": "base_foundation_model",
+                "modality": modality,
+            },
+            progress_callback=progress_callback,
+        )
 
     def upload_metadata_json(self, metadata: Dict[str, Any], name: str = "model_metadata.json") -> Dict[str, Any]:
         """Uploads JSON metadata to Pinata IPFS."""

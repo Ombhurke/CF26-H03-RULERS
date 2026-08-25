@@ -1,7 +1,7 @@
 """
 Upload Pretrained Base Models to Pinata IPFS (80MB CheXNet + 364MB CMR-AI)
 ==========================================================================
-Uploads the full base foundation models to Pinata IPFS with SHA-256 validation.
+Uploads the full base foundation models to Pinata IPFS using chunked streaming.
 Skips CT-CLIP (1.7 GB) as requested.
 """
 
@@ -9,24 +9,15 @@ import os
 import sys
 import time
 import json
-import hashlib
 from pathlib import Path
-import requests
 from dotenv import load_dotenv
 
-# Load env variables
+# Set sys.path to backend root
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BACKEND_DIR))
 load_dotenv(BACKEND_DIR / ".env")
 
-PINATA_FILE_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
-PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs"
-
-JWT = os.getenv("PINATA_JWT") or os.getenv("VITE_PINATA_JWT") or ""
-if not JWT:
-    print("ERROR: PINATA_JWT not found in backend/.env", flush=True)
-    sys.exit(1)
-
-HEADERS = {"Authorization": f"Bearer {JWT}"}
+from services.pinata_service import pinata_service
 
 MODELS_TO_UPLOAD = [
     {
@@ -44,103 +35,55 @@ MODELS_TO_UPLOAD = [
 ]
 
 
-def compute_sha256(filepath: Path) -> str:
-    sha = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        while chunk := f.read(1024 * 1024):
-            sha.update(chunk)
-    return sha.hexdigest()
+def main():
+    print("Starting Streaming Upload of Pretrained Base Foundation Models...", flush=True)
+    results = []
 
+    for m in MODELS_TO_UPLOAD:
+        filepath = m["path"]
+        if not filepath.exists():
+            print(f"Skipping {m['name']}: file not found at {filepath}", flush=True)
+            continue
 
-def upload_file_to_pinata(model_info: dict):
-    filepath = model_info["path"]
-    if not filepath.exists():
-        print(f"ERROR: File not found at {filepath}", flush=True)
-        return None
+        size_mb = filepath.stat().st_size / (1024 * 1024)
+        print(f"\n=======================================================", flush=True)
+        print(f"Uploading: {m['name']} ({size_mb:.2f} MB)", flush=True)
+        print(f"Path: {filepath}", flush=True)
+        print(f"=======================================================", flush=True)
 
-    size_mb = filepath.stat().st_size / (1024 * 1024)
-    print(f"\n=======================================================", flush=True)
-    print(f"Uploading: {model_info['name']} ({size_mb:.2f} MB)", flush=True)
-    print(f"Path: {filepath}", flush=True)
-    print(f"=======================================================", flush=True)
+        last_print = [0]
+        def on_progress(bytes_read, total_bytes):
+            now = time.time()
+            if now - last_print[0] >= 5 or bytes_read == total_bytes:
+                pct = (bytes_read / total_bytes) * 100
+                mb_r = bytes_read / (1024 * 1024)
+                mb_t = total_bytes / (1024 * 1024)
+                print(f"  ... Streaming: {mb_r:.1f} MB / {mb_t:.1f} MB ({pct:.1f}%)", flush=True)
+                last_print[0] = now
 
-    print("Computing SHA-256 checksum...", flush=True)
-    sha256_hash = compute_sha256(filepath)
-    print(f"SHA-256: {sha256_hash}", flush=True)
-
-    metadata = {
-        "name": f"{model_info['name']}_{filepath.name}",
-        "keyvalues": {
-            "model_id": model_info["model_id"],
-            "modality": model_info["modality"],
-            "type": "base_foundation_model",
-            "sha256": sha256_hash,
-            "size_mb": f"{size_mb:.2f}",
-            "uploaded_at": str(time.time()),
-        }
-    }
-
-    print(f"Sending multipart upload to Pinata IPFS (this may take 1-3 minutes for large models)...", flush=True)
-    start_t = time.time()
-
-    with open(filepath, "rb") as fp:
-        files = {
-            "file": (filepath.name, fp, "application/octet-stream"),
-        }
-        data = {
-            "pinataMetadata": json.dumps(metadata),
-            "pinataOptions": json.dumps({"cidVersion": 1}),
-        }
-        res = requests.post(
-            PINATA_FILE_URL,
-            headers=HEADERS,
-            files=files,
-            data=data,
-            timeout=600,
+        res = pinata_service.upload_large_base_model(
+            file_path=filepath,
+            model_name=m["name"],
+            modality=m["modality"],
+            progress_callback=on_progress,
         )
 
-    duration = time.time() - start_t
-    if res.status_code == 200:
-        resp_json = res.json()
-        cid = resp_json.get("IpfsHash")
-        print(f"\n[SUCCESS] Uploaded in {duration:.1f}s!", flush=True)
-        print(f"Pinata IPFS CID: {cid}", flush=True)
-        print(f"Gateway URL: {PINATA_GATEWAY}/{cid}", flush=True)
-        return {
-            "name": model_info["name"],
-            "model_id": model_info["model_id"],
-            "cid": cid,
-            "gateway_url": f"{PINATA_GATEWAY}/{cid}",
-            "sha256": sha256_hash,
-            "size_mb": size_mb,
-        }
-    else:
-        print(f"\n[FAILED] Pinata upload error: {res.status_code} - {res.text}", flush=True)
-        return None
-
-
-def main():
-    print("Starting Pinata Base Models Upload (CheXNet 80MB + CMR-AI 364MB)...", flush=True)
-    results = []
-    for m in MODELS_TO_UPLOAD:
-        res = upload_file_to_pinata(m)
-        if res:
-            results.append(res)
+        print(f"\n[COMPLETED] Model: {m['name']}", flush=True)
+        print(f"  • CID: {res['cid']}", flush=True)
+        print(f"  • Gateway URL: {res['gateway_url']}", flush=True)
+        print(f"  • SHA-256: {res['sha256']}", flush=True)
+        results.append(res)
 
     print("\n=======================================================", flush=True)
-    print("UPLOAD SUMMARY:", flush=True)
+    print("BASE MODEL IPFS PINNING SUMMARY:", flush=True)
     print("=======================================================", flush=True)
     for r in results:
-        print(f"• {r['name']} ({r['size_mb']:.2f} MB):")
-        print(f"  - CID: {r['cid']}")
-        print(f"  - Gateway: {r['gateway_url']}")
-        print(f"  - SHA-256: {r['sha256']}")
+        print(f"• CID: {r['cid']} | SHA-256: {r['sha256'][:16]}... | Size: {r['file_size_bytes']/(1024*1024):.2f} MB")
 
-    # Save summary artifact JSON
     out_file = BACKEND_DIR / "services" / "base_models_ipfs.json"
     with open(out_file, "w") as f:
         json.dump(results, f, indent=2)
-    print(f"\nSaved IPFS mapping to {out_file}", flush=True)
+    print(f"\nSaved summary to {out_file}", flush=True)
 
 
 if __name__ == "__main__":
