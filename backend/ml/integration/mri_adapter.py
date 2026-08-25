@@ -31,7 +31,10 @@ CMR_CVD_CLASSES = [
     "RCM (Restrictive)", "Ebstein's Anomaly", "HHD (Hypertensive)", "CAM (Amyloidosis)", "LVNC"
 ]
 
-MRI_EXTS = {".nii", ".nii.gz", ".npz", ".npy", ".dcm", ".dicom", ".png", ".jpg", ".jpeg"}
+# Allowed Cine and volumetric NIfTI/DICOM extensions for Cardiac MRI
+MRI_EXTS = {".nii", ".nii.gz", ".npz", ".npy", ".dcm", ".dicom"}
+# 2D plain image formats that are forbidden for dynamic cine MRI models
+FORBIDDEN_2D_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 
 class DatasetValidationError(Exception):
@@ -91,14 +94,19 @@ class MRIAdapter:
             zip_buf = io.BytesIO(file_bytes)
             with zipfile.ZipFile(zip_buf, "r") as zf:
                 namelist = zf.namelist()
-                valid_entries = [
-                    n for n in namelist
-                    if not n.startswith("__MACOSX") and not n.endswith("/") and any(n.lower().endswith(ext) for ext in MRI_EXTS)
-                ]
+                all_files = [n for n in namelist if not n.startswith("__MACOSX") and not n.endswith("/")]
+                
+                # Check for incompatible 2D image files (e.g. X-rays / standard photos)
+                forbidden_2d_files = [n for n in all_files if any(n.lower().endswith(ext) for ext in FORBIDDEN_2D_EXTS)]
+                valid_entries = [n for n in all_files if any(n.lower().endswith(ext) for ext in MRI_EXTS)]
 
                 if len(valid_entries) == 0:
+                    if len(forbidden_2d_files) > 0:
+                        raise DatasetValidationError(
+                            f"❌ Modality Mismatch Error: Model 'CMR-AI (Cardiac MRI)' strictly requires multi-phase Cine MRI sequences (.nii.gz, .dcm). Found {len(forbidden_2d_files)} plain 2D images (.png/.jpg) which cannot be processed by Video Swin spatiotemporal attention."
+                        )
                     raise DatasetValidationError(
-                        f"No valid Cardiac MRI scans or cine slices found in '{filename}'. Expected .nii, .nii.gz, .dcm, or .png."
+                        f"No valid Cardiac MRI cine scans found in '{filename}'. Expected .nii, .nii.gz, or .dcm multi-view sequences."
                     )
 
                 studies = []

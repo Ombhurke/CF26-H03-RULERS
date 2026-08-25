@@ -34,7 +34,10 @@ CT_PATHOLOGIES = [
     "Peribronchial thickening", "Consolidation", "Bronchiectasis", "Interlobular septal thickening"
 ]
 
-CT_EXTS = {".nii", ".nii.gz", ".npz", ".npy", ".dcm", ".dicom", ".png", ".jpg", ".jpeg"}
+# Allowed 3D volumetric and medical DICOM extensions for CT scans
+CT_EXTS = {".nii", ".nii.gz", ".npz", ".npy", ".dcm", ".dicom"}
+# 2D plain image formats that are forbidden for volumetric CT models
+FORBIDDEN_2D_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 
 class DatasetValidationError(Exception):
@@ -123,14 +126,19 @@ class CTScanAdapter:
             zip_buf = io.BytesIO(file_bytes)
             with zipfile.ZipFile(zip_buf, "r") as zf:
                 namelist = zf.namelist()
-                valid_entries = [
-                    n for n in namelist
-                    if not n.startswith("__MACOSX") and not n.endswith("/") and any(n.lower().endswith(ext) for ext in CT_EXTS)
-                ]
+                all_files = [n for n in namelist if not n.startswith("__MACOSX") and not n.endswith("/")]
+                
+                # Check for incompatible 2D image files (e.g. X-rays / standard photos)
+                forbidden_2d_files = [n for n in all_files if any(n.lower().endswith(ext) for ext in FORBIDDEN_2D_EXTS)]
+                valid_entries = [n for n in all_files if any(n.lower().endswith(ext) for ext in CT_EXTS)]
 
                 if len(valid_entries) == 0:
+                    if len(forbidden_2d_files) > 0:
+                        raise DatasetValidationError(
+                            f"❌ Modality Mismatch Error: Model 'CT-CLIP (3D Chest CT)' strictly requires 3D volumetric CT scans (.nii, .nii.gz, .npz) or 3D DICOM series (.dcm). Found {len(forbidden_2d_files)} plain 2D images (.png/.jpg) which cannot be processed by 3D Vision Transformers."
+                        )
                     raise DatasetValidationError(
-                        f"No valid CT volumes or slices found in '{filename}'. Expected .nii, .nii.gz, .npz, .dcm, or .png."
+                        f"No valid CT volumes found in '{filename}'. Expected .nii, .nii.gz, .npz, or .dcm volumetric series."
                     )
 
                 # Generate normalized CT slice/volume representations

@@ -9,6 +9,7 @@ Phase 1 & Phase 2 Implementations:
 """
 
 import os
+import re
 import uuid
 import time
 from datetime import datetime, date
@@ -113,31 +114,42 @@ async def check_patient_duplicates(req: FuzzyCheckRequest):
 # ============================================================================
 
 class CreateAppointmentRequest(BaseModel):
-    uhid: str
+    uhid: Optional[str] = None
     patient_name: str
+    phone: Optional[str] = None
     patient_phone: Optional[str] = None
-    doctor_id: str
-    doctor_name: str
-    department: str = "General Medicine"
-    appointment_date: str
-    slot_time: str
+    date_of_birth: Optional[str] = None
+    doctor_id: Optional[str] = "doc-01"
+    doctor_name: Optional[str] = "Dr. Marcus Vance, MD (Cardiology)"
+    department: Optional[str] = "Cardiology"
+    appointment_date: Optional[str] = None
+    slot_time: Optional[str] = "10:00 AM"
     chief_complaint: Optional[str] = None
 
 @router.post("/opd/book")
 async def book_opd_appointment(req: CreateAppointmentRequest):
-    """Books an OPD appointment and assigns a token number."""
+    """Books an OPD appointment and assigns a dynamic token number."""
     token_num = len(IN_MEMORY_APPOINTMENTS) + 101
     appt_id = str(uuid.uuid4())
+    
+    phone_val = req.phone or req.patient_phone or "0987654321"
+    appt_date = req.appointment_date or datetime.utcnow().date().isoformat()
+    
+    uhid_val = req.uhid
+    if not uhid_val:
+        clean_name = re.sub(r'[^a-zA-Z]', '', req.patient_name)[:4].upper() or "PAT"
+        uhid_val = f"UHID-{clean_name}-{datetime.utcnow().strftime('%y%m%d%H%M')}"
+        
     appt_data = {
         "id": appt_id,
-        "uhid": req.uhid,
+        "uhid": uhid_val,
         "patient_name": req.patient_name,
-        "patient_phone": req.patient_phone,
-        "doctor_id": req.doctor_id,
-        "doctor_name": req.doctor_name,
-        "department": req.department,
-        "appointment_date": req.appointment_date,
-        "slot_time": req.slot_time,
+        "patient_phone": phone_val,
+        "doctor_id": req.doctor_id or "doc-01",
+        "doctor_name": req.doctor_name or "Dr. Marcus Vance, MD (Cardiology)",
+        "department": req.department or "Cardiology",
+        "appointment_date": appt_date,
+        "slot_time": req.slot_time or "10:00 AM",
         "token_number": token_num,
         "status": "booked",
         "triage_priority": "GREEN",

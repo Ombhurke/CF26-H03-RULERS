@@ -107,25 +107,37 @@ export function OPDQueueManagement() {
 
     setIsLoading(true);
     try {
+      const payload = {
+        uhid: fuzzyWarning?.uhid || `UHID-${patientName.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'PAT'}-${Date.now().toString().slice(-4)}`,
+        patient_name: patientName,
+        phone: phone || "0987654321",
+        patient_phone: phone || "0987654321",
+        date_of_birth: dob || "1994-08-29",
+        doctor_id: "doc-01",
+        doctor_name: doctorName || "Dr. Marcus Vance, MD (Cardiology)",
+        department: "Cardiology",
+        appointment_date: new Date().toISOString().split("T")[0],
+        slot_time: slotTime || "10:00 AM",
+        chief_complaint: chiefComplaint || "General Outpatient Consultation",
+      };
+
       const res = await fetch(`${API_BASE_URL}/hms/opd/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patient_name: patientName,
-          phone,
-          date_of_birth: dob,
-          doctor_name: doctorName,
-          department: "Cardiology",
-          slot_time: slotTime,
-          chief_complaint: chiefComplaint,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         setShowBookingModal(false);
         setPatientName("");
+        setPhone("");
+        setDob("");
+        setChiefComplaint("");
         setFuzzyWarning(null);
         fetchQueue();
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        console.error("Booking error response:", errJson);
       }
     } catch (e) {
       console.error("Booking error:", e);

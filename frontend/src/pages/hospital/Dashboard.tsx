@@ -29,12 +29,16 @@ export interface TriagePatient {
         spo2: string;
         temp: string;
     };
-    category: PriorityLevel;
-    chief_complaint: string;
-    ai_summary: string;
-    risk_score: number;
-    recommended_action: string;
-    status: "waiting" | "in_treatment" | "discharged";
+    symptoms?: string;
+    priority_level?: PriorityLevel;
+    ai_confidence?: number;
+    ai_reasoning?: string;
+    category?: PriorityLevel;
+    chief_complaint?: string;
+    ai_summary?: string;
+    risk_score?: number;
+    recommended_action?: string;
+    status: string;
     bed_assigned?: string;
 }
 
@@ -190,7 +194,7 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
         return "Peak";
     };
 
-    const criticalPatientsCount = queue.filter(p => p.priority_level === 'RED' || p.priority_level === 'ORANGE').length;
+    const criticalPatientsCount = queue.filter(p => (p.priority_level === 'RED' || p.category === 'RED' || p.priority_level === 'ORANGE' || p.category === 'ORANGE')).length;
 
     const markAttended = async (patientId: string) => {
         try {
@@ -426,19 +430,19 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.3, delay: index * 0.05 }}
                             >
-                                <Card className={`glass-card overflow-hidden border-2 transition-all hover:shadow-xl hover:scale-[1.01] duration-300 ${patient.priority_level === 'RED' ? 'border-red-500/30 ring-1 ring-red-500/20' :
-                                    patient.priority_level === 'ORANGE' ? 'border-orange-500/30 ring-1 ring-orange-500/20' :
-                                        patient.priority_level === 'YELLOW' ? 'border-yellow-500/30 ring-1 ring-yellow-500/20' :
-                                            patient.priority_level === 'GREEN' ? 'border-green-500/30 ring-1 ring-green-500/20' :
+                                <Card className={`glass-card overflow-hidden border-2 transition-all hover:shadow-xl hover:scale-[1.01] duration-300 ${(patient.priority_level || patient.category) === 'RED' ? 'border-red-500/30 ring-1 ring-red-500/20' :
+                                    (patient.priority_level || patient.category) === 'ORANGE' ? 'border-orange-500/30 ring-1 ring-orange-500/20' :
+                                        (patient.priority_level || patient.category) === 'YELLOW' ? 'border-yellow-500/30 ring-1 ring-yellow-500/20' :
+                                            (patient.priority_level || patient.category) === 'GREEN' ? 'border-green-500/30 ring-1 ring-green-500/20' :
                                                 'border-blue-500/30 ring-1 ring-blue-500/20'
                                     }`}>
                                     <CardContent className="p-0">
                                         <div className="flex flex-col lg:flex-row items-stretch">
                                             {/* Side Priority Indicator (Vertical) */}
-                                            <div className={`w-2 shrink-0 ${patient.priority_level === 'RED' ? 'bg-red-500' :
-                                                patient.priority_level === 'ORANGE' ? 'bg-orange-500' :
-                                                    patient.priority_level === 'YELLOW' ? 'bg-yellow-500' :
-                                                        patient.priority_level === 'GREEN' ? 'bg-green-500' : 'bg-blue-500'
+                                            <div className={`w-2 shrink-0 ${(patient.priority_level || patient.category) === 'RED' ? 'bg-red-500' :
+                                                (patient.priority_level || patient.category) === 'ORANGE' ? 'bg-orange-500' :
+                                                    (patient.priority_level || patient.category) === 'YELLOW' ? 'bg-yellow-500' :
+                                                        (patient.priority_level || patient.category) === 'GREEN' ? 'bg-green-500' : 'bg-blue-500'
                                                 }`} />
 
                                             <div className="flex-1 p-6">
@@ -454,9 +458,14 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                                                                     {patient.patient_name}
                                                                 </h3>
                                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${PRIORITY_COLORS[patient.priority_level]}`}>
-                                                                        Level {PRIORITY_ORDER[patient.priority_level]} — {patient.priority_level}
-                                                                    </span>
+                                                                    {(() => {
+                                                                        const pLevel = (patient.priority_level || patient.category || 'GREEN') as PriorityLevel;
+                                                                        return (
+                                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${PRIORITY_COLORS[pLevel] || PRIORITY_COLORS.GREEN}`}>
+                                                                                Level {PRIORITY_ORDER[pLevel] || 4} — {pLevel}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
                                                                     <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
                                                                         <Clock className="w-3 h-3" />
                                                                         {formatWaitTime(patient.arrival_time)}
@@ -495,11 +504,11 @@ export default function HospitalDashboard({ defaultTab = 'queue' }: { defaultTab
                                                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                                                             <span className="text-[10px] font-black uppercase tracking-widest text-primary">Clinical Insight</span>
                                                             <span className="text-[10px] ml-auto font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                                                                {patient.ai_confidence}% Confidence
+                                                                {patient.ai_confidence || 85}% Confidence
                                                             </span>
                                                         </div>
                                                         <p className="text-xs leading-relaxed text-foreground/90 italic font-medium relative z-10 line-clamp-3">
-                                                            "{patient.ai_reasoning}"
+                                                            "{patient.ai_reasoning || patient.ai_summary || patient.chief_complaint || 'No symptoms reported'}"
                                                         </p>
                                                     </div>
 

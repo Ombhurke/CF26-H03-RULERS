@@ -21,6 +21,10 @@ import {
   Terminal,
   AlertTriangle,
   FileWarning,
+  Globe,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import type { FLModel, FLTrainingJob } from "@/lib/fl-service";
 import type { ModelRuntimeState } from "@/lib/marketplace-store";
@@ -60,6 +64,7 @@ export function TrainingPanel({
   // Evaluation Result Modal
   const [verificationResult, setVerificationResult] = useState<FLTrainingJob | null>(null);
   const [showResultModal, setShowResultModal] = useState<boolean>(false);
+  const [copiedCid, setCopiedCid] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logConsoleRef = useRef<HTMLDivElement>(null);
@@ -543,26 +548,58 @@ export function TrainingPanel({
               </div>
             </div>
 
-            {/* Pinata IPFS Model Artifact CID */}
+            {/* Pinata IPFS Model Artifact CID & Decentralized Broadcast Card */}
             {verificationResult.pinata_cid && (
-              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs">
-                <div className="flex items-center justify-between text-primary font-bold">
-                  <span className="flex items-center gap-1.5">
-                    <UploadCloud className="w-4 h-4" />
-                    Pinata / IPFS Model Checkpoint:
-                  </span>
+              <div className="flex flex-col gap-2.5 p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-primary/5 to-card border border-emerald-500/30 text-xs shadow-sm animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                    </span>
+                    <Globe className="w-4 h-4" />
+                    <span>Decentralized Model Live on Pinata IPFS</span>
+                  </div>
                   <a
                     href={verificationResult.gateway_url || `https://gateway.pinata.cloud/ipfs/${verificationResult.pinata_cid}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] underline font-mono text-primary hover:text-primary/80"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
                   >
-                    Open in IPFS Gateway &rarr;
+                    Gateway Explorer <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-                <span className="font-mono text-[11px] bg-card p-1.5 rounded border border-primary/20 break-all text-foreground select-all">
-                  {verificationResult.pinata_cid}
-                </span>
+
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  ✅ <strong className="text-foreground">Global Sync Complete:</strong> Updated neural weights have been uploaded to IPFS. All participating hospitals in the federation can now download and run inferences with this new model checkpoint.
+                </p>
+
+                <div className="flex items-center justify-between gap-2 bg-background/80 p-2.5 rounded-xl border border-border/80 font-mono text-[11px]">
+                  <span className="truncate text-foreground font-bold select-all">
+                    {verificationResult.pinata_cid}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (verificationResult?.pinata_cid) {
+                        navigator.clipboard.writeText(verificationResult.pinata_cid);
+                        setCopiedCid(true);
+                        setTimeout(() => setCopiedCid(false), 2000);
+                      }
+                    }}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 text-[10px] font-bold transition-colors"
+                  >
+                    {copiedCid ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-500" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" /> Copy CID
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
