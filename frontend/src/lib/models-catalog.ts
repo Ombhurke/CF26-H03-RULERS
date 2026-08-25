@@ -7,6 +7,8 @@
 
 export type Modality =
   | "Chest X-ray"
+  | "Chest CT Scan"
+  | "Cardiac MRI"
   | "Dermatoscopy"
   | "Breast Ultrasound"
   | "Retinal Fundus"
@@ -66,49 +68,150 @@ export interface ModelDefinition {
 
 export const MODELS: ModelDefinition[] = [
   {
-    id: "pneumonia-cxr",
-    name: "Pediatric Pneumonia Detector",
-    shortName: "PneumoNet",
+    id: "cxr-pneumo-cnn",
+    name: "CheXNet Frontal Radiograph Classifier",
+    shortName: "CheXNet",
     modality: "Chest X-ray",
-    task: "Binary classification · Normal vs. Pneumonia",
-    summary: "Frontal chest radiograph screening for pediatric pneumonia.",
+    task: "14-Pathology Multi-label Classification · Chest Radiographs",
+    summary: "DenseNet-121 classifier detecting 14 chest pathologies from frontal X-rays.",
     description:
-      "A convolutional classifier that flags pneumonia on frontal pediatric chest X-rays. Trained federally across hospitals so no radiograph ever leaves the site of care.",
-    architecture: "ResNet-18 (ImageNet-init, fine-tuned)",
-    parameters: "11.2M",
-    classes: ["Normal", "Pneumonia"],
-    input: { resolution: "224 × 224", channels: "1 (grayscale)", format: "DICOM or PNG" },
+      "Trained on over 100,000 frontal chest radiographs using DenseNet-121 architecture. Hospitals train locally with DP-SGD and share approved checkpoint updates via Pinata IPFS.",
+    architecture: "DenseNet-121 (Pretrained m-25012018-123527)",
+    parameters: "7.0M",
+    classes: [
+      "Atelectasis", "Cardiomegaly", "Effusion", "Infiltration", "Mass", "Nodule",
+      "Pneumonia", "Pneumothorax", "Consolidation", "Edema", "Emphysema", "Fibrosis",
+      "Pleural_Thickening", "Hernia"
+    ],
+    input: { resolution: "224 × 224", channels: "3 (RGB / Grayscale)", format: "DICOM or PNG (.zip)" },
     dataRequirements: [
       { label: "Modality", value: "Frontal (AP/PA) chest radiographs" },
-      { label: "Labels", value: "Radiologist-confirmed Normal / Pneumonia" },
-      { label: "Min. labeled studies", value: "500 per site" },
-      { label: "Patient age", value: "Pediatric (1–5 yrs) preferred" },
-      { label: "PHI", value: "Must be de-identified at source" },
+      { label: "Labels", value: "Multi-label pathology findings" },
+      { label: "Min. labeled studies", value: "10 per site" },
+      { label: "Base Checkpoint", value: "m-25012018-123527.pth.tar" },
+      { label: "Provenance", value: "Pinata / IPFS Immutable CID" },
     ],
     preprocessing: [
       "Window/level normalize to 8-bit grayscale",
-      "Center-crop to lung field, resize to 224×224",
-      "Histogram equalization (CLAHE)",
-      "Per-image z-score standardization",
+      "Resize to 224×224 bilinear",
+      "Histogram standardization (ImageNet mean/std)",
+      "Zero-raw-data privacy invariant applied",
     ],
     trainingSteps: [
-      { title: "Stage your dataset", detail: "Place de-identified studies in the local secure volume with a two-column labels.csv (study_id, label)." },
-      { title: "Validate & preprocess", detail: "The client verifies label balance and runs CLAHE + resize locally. Nothing is uploaded." },
-      { title: "Local DP-SGD epochs", detail: "Train 3 local epochs with gradient clipping and Gaussian noise (ε budget tracked live)." },
-      { title: "Submit weight delta", detail: "Only the noised weight delta is shared. Multi-Krum screens it against the honest consensus." },
-      { title: "Receive global checkpoint", detail: "The coordinator aggregates accepted deltas and returns the new global model to every site." },
+      { title: "Stage dataset ZIP", detail: "Upload local .zip archive containing chest X-ray images in class folders or labeled cohorts." },
+      { title: "Pre-flight validation", detail: "Local daemon strictly validates image formats (.png, .jpg, .dcm) and rejects non-image tabular data." },
+      { title: "Load CheXNet base model", detail: "Loads immutable pretrained DenseNet-121 weights (m-25012018-123527.pth.tar)." },
+      { title: "Local DP-SGD training", detail: "Runs privacy-preserving fine-tuning with gradient clipping (max norm 1.0) and AdamW." },
+      { title: "Pinata IPFS model upload", detail: "Candidate model checkpoint is uploaded to IPFS via Pinata with cryptographic SHA-256 hash." },
     ],
-    baseAccuracy: 0.781,
-    targetAccuracy: 0.964,
+    baseAccuracy: 0.8508,
+    targetAccuracy: 0.965,
     epsilonMax: 5.0,
     status: "training",
-    minSamples: 500,
+    minSamples: 10,
     accent: "indigo",
     hospitals: [
       { id: "h1", name: "St. Jude Children's", code: "GE", region: "Memphis, US", scanner: "GE Discovery", samples: 1200 },
       { id: "h2", name: "Great Ormond Street", code: "SIE", region: "London, UK", scanner: "Siemens Ysio", samples: 850 },
       { id: "h3", name: "Bambino Gesù", code: "PHI", region: "Rome, IT", scanner: "Philips DigitalDiagnost", samples: 640 },
-      { id: "h4", name: "Node-Delta Clinic", code: "ROG", region: "Unverified", scanner: "Unknown", samples: 410, adversarial: true },
+    ],
+  },
+  {
+    id: "ct-clip-3d",
+    name: "CT-CLIP 3D Chest CT Scanner",
+    shortName: "CT-CLIP",
+    modality: "Chest CT Scan",
+    task: "18-Pathology Volumetric 3D Chest CT Classification",
+    summary: "3D Vision Transformer foundation model for chest CT volume pathology detection.",
+    description:
+      "Uses 3D CTViT and text-aligned contrastive learning across 18 clinical findings (Emphysema, Nodules, Consolidation, Effusion, etc.). Trained locally on volumetric scans without exfiltrating raw 3D data.",
+    architecture: "CTViT + CT-CLIP (3D Vision Transformer)",
+    parameters: "140M",
+    classes: [
+      "Medical material", "Arterial wall calcification", "Cardiomegaly",
+      "Pericardial effusion", "Coronary artery wall calcification", "Hiatal hernia",
+      "Lymphadenopathy", "Emphysema", "Atelectasis", "Lung nodule", "Lung opacity",
+      "Pulmonary fibrotic sequela", "Pleural effusion", "Mosaic attenuation pattern",
+      "Peribronchial thickening", "Consolidation", "Bronchiectasis", "Interlobular septal thickening"
+    ],
+    input: { resolution: "Isotropic 3D Volume / Axial Slices", channels: "1 (HU Windowed)", format: "NIfTI (.nii, .nii.gz) or ZIP" },
+    dataRequirements: [
+      { label: "Modality", value: "Volumetric 3D Chest CT / Axial Slices" },
+      { label: "Labels", value: "18 standard CT-RATE clinical findings" },
+      { label: "Min. labeled studies", value: "10 per site" },
+      { label: "Base Checkpoint", value: "CT-CLIP_v2.pt" },
+      { label: "Provenance", value: "Pinata / IPFS Immutable CID" },
+    ],
+    preprocessing: [
+      "HU windowing (Lung W:1500 L:-600 / Mediastinal W:350 L:40)",
+      "Isotropic voxel spacing resampling",
+      "Intensity standardization",
+      "Local DP-SGD gradient masking",
+    ],
+    trainingSteps: [
+      { title: "Stage CT dataset archive", detail: "Provide 3D NIfTI volumes (.nii, .nii.gz) or axial slice image archives in a .zip file." },
+      { title: "Pre-flight validation", detail: "Verifies volumetric formats and scans internal study structures locally." },
+      { title: "Load CT-CLIP foundation model", detail: "Loads immutable pretrained CT-CLIP_v2.pt checkpoint weights." },
+      { title: "Local DP-SGD epochs", detail: "Fine-tunes 3D vision encoder on local hospital scanner volumes." },
+      { title: "Pinata IPFS versioning", detail: "Trained candidate checkpoint is pinned to IPFS via Pinata with cryptographic SHA-256 proof." },
+    ],
+    baseAccuracy: 0.8840,
+    targetAccuracy: 0.970,
+    epsilonMax: 5.5,
+    status: "training",
+    minSamples: 10,
+    accent: "sky",
+    hospitals: [
+      { id: "c1", name: "Charité Radiology", code: "SIE", region: "Berlin, DE", scanner: "Siemens SOMATOM", samples: 1800 },
+      { id: "c2", name: "Toronto General", code: "GE", region: "Toronto, CA", scanner: "GE Revolution", samples: 1550 },
+    ],
+  },
+  {
+    id: "cmr-ai-vst",
+    name: "CMR-AI Cardiac MRI CVD Diagnostic",
+    shortName: "CMR-AI",
+    modality: "Cardiac MRI",
+    task: "11-Cardiovascular Disease Multi-class Diagnosis",
+    summary: "Video Swin Transformer for screening and diagnosis of 11 cardiovascular diseases.",
+    description:
+      "Nature Medicine foundation model combining multi-view cine sequences (SAX, 4CH) to diagnose HCM, DCM, CAD, Myocarditis, Amyloidosis, and more. Hospital data stays strictly on-premises.",
+    architecture: "Video Swin Transformer (SwinTransformer3D)",
+    parameters: "88M",
+    classes: [
+      "HCM (Hypertrophic)", "DCM (Dilated)", "CAD (Coronary Artery)",
+      "ARVC (Arrhythmogenic)", "PAH (Pulmonary Hypertension)", "Myocarditis",
+      "RCM (Restrictive)", "Ebstein's Anomaly", "HHD (Hypertensive)", "CAM (Amyloidosis)", "LVNC"
+    ],
+    input: { resolution: "224 × 224 Cine Frames", channels: "Multi-view Temporal Series", format: "NIfTI (.nii, .nii.gz) or ZIP" },
+    dataRequirements: [
+      { label: "Modality", value: "Short-Axis (SAX) & 4-Chamber (4CH) Cine CMR" },
+      { label: "Labels", value: "11-class CVD expert diagnosis" },
+      { label: "Min. labeled studies", value: "10 per site" },
+      { label: "Base Checkpoint", value: "swin_base_patch244_window877_kinetics600_22k.pth" },
+      { label: "Provenance", value: "Pinata / IPFS Immutable CID" },
+    ],
+    preprocessing: [
+      "Cine temporal frame alignment (25 frames per view)",
+      "Heart ROI bounding box crop",
+      "Dynamic intensity contrast standardization",
+      "Differential privacy gradient clipping",
+    ],
+    trainingSteps: [
+      { title: "Stage Cardiac MRI archive", detail: "Upload cardiac cine scans in .zip format containing SAX / 4CH NIfTI or DICOM studies." },
+      { title: "Pre-flight validation", detail: "Scans cine series and verifies temporal frame structures locally." },
+      { title: "Load CMR-AI base model", detail: "Loads immutable Video Swin Transformer checkpoint (swin_base_patch244_window877...)." },
+      { title: "Local DP-SGD fine-tuning", detail: "Trains across 11 CVD classes with trust-aware consensus gating." },
+      { title: "Pinata IPFS model publish", detail: "Pins approved model weights to IPFS via Pinata and registers SHA-256 provenance hash." },
+    ],
+    baseAccuracy: 0.8710,
+    targetAccuracy: 0.968,
+    epsilonMax: 5.0,
+    status: "training",
+    minSamples: 10,
+    accent: "purple",
+    hospitals: [
+      { id: "m1", name: "Royal Brompton Heart", code: "SIE", region: "London, UK", scanner: "Siemens Magnetom", samples: 1400 },
+      { id: "m2", name: "Cleveland Clinic Heart", code: "GE", region: "Cleveland, US", scanner: "GE Signa", samples: 1250 },
     ],
   },
   {

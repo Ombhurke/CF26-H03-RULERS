@@ -6,6 +6,8 @@ import { ModelCard } from "./ModelCard";
 const FILTERS = [
   "All",
   "Chest X-ray",
+  "Chest CT Scan",
+  "Cardiac MRI",
   "Dermatoscopy",
   "Breast Ultrasound",
   "Retinal Fundus",

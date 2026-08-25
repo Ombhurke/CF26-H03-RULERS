@@ -543,6 +543,29 @@ export function TrainingPanel({
               </div>
             </div>
 
+            {/* Pinata IPFS Model Artifact CID */}
+            {verificationResult.pinata_cid && (
+              <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs">
+                <div className="flex items-center justify-between text-primary font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <UploadCloud className="w-4 h-4" />
+                    Pinata / IPFS Model Checkpoint:
+                  </span>
+                  <a
+                    href={verificationResult.gateway_url || `https://gateway.pinata.cloud/ipfs/${verificationResult.pinata_cid}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] underline font-mono text-primary hover:text-primary/80"
+                  >
+                    Open in IPFS Gateway &rarr;
+                  </a>
+                </div>
+                <span className="font-mono text-[11px] bg-card p-1.5 rounded border border-primary/20 break-all text-foreground select-all">
+                  {verificationResult.pinata_cid}
+                </span>
+              </div>
+            )}
+
             {/* Provenance Proof */}
             <div className="flex items-center gap-2 pt-2 border-t border-border/60 text-xs text-muted-foreground">
               <Lock className="w-3.5 h-3.5 text-primary shrink-0" />

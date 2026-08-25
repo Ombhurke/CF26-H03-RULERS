@@ -61,6 +61,8 @@ export interface FLHospitalNode {
 export interface FLTrainingJob {
   id: string;
   model_id: string;
+  category?: string;
+  modality?: string;
   hospital_id: string;
   hospital_name: string;
   dataset_name: string;
@@ -86,6 +88,8 @@ export interface FLTrainingJob {
     phase: string;
   }>;
   provenance_hash: string;
+  pinata_cid?: string;
+  gateway_url?: string;
   created_at?: string;
 }
 
@@ -260,12 +264,13 @@ export async function startBackendTrainingJob(params: {
 
   const formData = new FormData();
   formData.append("model_id", params.modelId);
+  formData.append("category", params.modality || params.modelId);
   formData.append("hospital_id", hospitalId);
   formData.append("hospital_name", hospitalName);
   formData.append("modality", params.modality || "Chest X-ray");
   formData.append("classes_json", JSON.stringify(params.classes || ["Normal", "Pneumonia / Infiltration"]));
-  formData.append("epochs", String(params.epochs || 10));
-  formData.append("batch_size", String(params.batchSize || 16));
+  formData.append("epochs", String(params.epochs || 5));
+  formData.append("batch_size", String(params.batchSize || 8));
   formData.append("baseline_accuracy", String(params.baselineAccuracy || 0.76));
   formData.append("is_adversarial", String(params.isAdversarial || false));
 
